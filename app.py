@@ -64,6 +64,15 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/sw.js')
+def service_worker():
+    # Se sirve desde la raíz (no /static/) para que su scope cubra todo el sitio,
+    # incluyendo /api/... y la página principal.
+    response = send_from_directory('static', 'sw.js')
+    response.headers['Service-Worker-Allowed'] = '/'
+    return response
+
+
 # ─── ADMIN (PIN) ───
 
 @app.route('/api/admin/login', methods=['POST'])
