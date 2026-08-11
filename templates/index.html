@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Mi Catálogo</title>
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --primary-light: #eef2ff;
+            --danger: #fc5c5c;
+            --danger-light: #fff5f5;
+            --success: #48bb78;
+            --bg: #f0f2f5;
+            --surface: #ffffff;
+            --text: #1a202c;
+            --text-2: #4a5568;
+            --text-muted: #a0aec0;
+            --border: #e2e8f0;
+            --nav-h: 60px;
+            --header-h: 56px;
+            --radius: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overscroll-behavior-y: none;
+        }
+
+        /* ── HEADER ── */
+        .header {
+            background: var(--primary);
+            height: var(--header-h);
+            display: flex;
+            align-items: center;
+            padding: 0 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(102,126,234,.3);
+        }
+        .header-title {
+            flex: 1;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+        }
+        .header-btn {
+            width: 40px; height: 40px;
+            background: rgba(255,255,255,.18);
+            border: none; border-radius: 50%;
+            color: white; font-size: 1.1rem;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+        .header-btn:active { background: rgba(255,255,255,.3); }
+
+        /* ── TABS ── */
+        .tab { display: none; padding: 1rem; padding-bottom: calc(var(--nav-h) + 5rem); min-height: 100vh; }
+        .tab.active { display: block; }
+
+        /* ── BOTTOM NAV ── */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            display: flex; z-index: 100;
+            box-shadow: 0 -2px 12px rgba(0,0,0,.07);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        .nav-btn {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 3px; border: none; background: none;
+            color: var(--text-muted); font-size: .68rem; font-weight: 500; cursor: pointer;
+            padding: 0; transition: color .15s;
+        }
+        .nav-btn.active { color: var(--primary); }
+        .nav-icon { font-size: 1.3rem; line-height: 1; }
+        .nav-dot {
+            width: 4px; height: 4px; border-radius: 50%; background: var(--primary);
+            margin-top: 1px; opacity: 0; transition: opacity .15s;
+        }
+        .nav-btn.active .nav-dot { opacity: 1; }
+
+        /* ── FAB ── */
+        .fab {
+            position: fixed;
+            bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 1rem);
+            right: 1rem;
+            width: 56px; height: 56px;
+            background: var(--primary); color: white; border: none;
+            border-radius: 16px; font-size: 1.6rem;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 18px rgba(102,126,234,.45);
+            z-index: 50; cursor: pointer; transition: transform .1s;
+        }
+        .fab:active { transform: scale(.92); }
+
+        /* ── SEARCH ── */
+        .search-wrap { position: relative; margin-bottom: .9rem; }
+        .search-wrap .icon { position: absolute; left: .75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .search-input {
+            width: 100%; padding: .75rem .75rem .75rem 2.5rem;
+            border: 1.5px solid var(--border); border-radius: var(--radius);
+            font-size: 1rem; background: var(--surface);
+            box-shadow: 0 1px 4px rgba(0,0,0,.05);
+        }
+        .search-input:focus { outline: none; border-color: var(--primary); }
+        .search-clear {
+            position: absolute; right: .5rem; top: 50%; transform: translateY(-50%);
+            width: 24px; height: 24px; border-radius: 50%; border: none;
+            background: var(--border); color: var(--text-2); font-size: .9rem;
+            display: none; align-items: center; justify-content: center; cursor: pointer;
+        }
+        .search-clear.show { display: flex; }
+
+        /* ── FILTER TOOLBAR ── */
+        .filter-bar { display: flex; gap: .5rem; margin-bottom: .85rem; align-items: center; }
+
+        .filter-select {
+            flex: 1; padding: .6rem .75rem;
+            border: 1.5px solid var(--border); border-radius: 10px;
+            background: var(--surface); font-size: .9rem; font-weight: 500;
+            color: var(--text); cursor: pointer; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a0aec0' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right .75rem center;
+            padding-right: 2.2rem;
+            min-width: 0;
+        }
+        .filter-select:focus { outline: none; border-color: var(--primary); }
+        .filter-select.has-filter { border-color: var(--primary); background-color: var(--primary-light); color: var(--primary); font-weight: 600; }
+
+        .sort-select {
+            padding: .6rem .65rem;
+            border: 1.5px solid var(--border); border-radius: 10px;
+            background: var(--surface); font-size: .85rem; font-weight: 500;
+            color: var(--text-2); cursor: pointer; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a0aec0' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right .6rem center;
+            padding-right: 1.9rem;
+            flex-shrink: 0;
+        }
+        .sort-select:focus { outline: none; border-color: var(--primary); }
+
+        .clear-filters-btn {
+            width: 38px; height: 38px; flex-shrink: 0;
+            border: 1.5px solid var(--danger); border-radius: 10px;
+            background: var(--danger-light); color: var(--danger);
+            font-size: 1rem; display: none; align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+        .clear-filters-btn.show { display: flex; }
+
+        /* ── PRODUCT GRID ── */
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; }
+        @media (min-width: 560px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+
+        .pcard {
+            background: var(--surface); border-radius: var(--radius); overflow: hidden;
+            box-shadow: 0 1px 5px rgba(0,0,0,.08);
+        }
+        .pcard-img-wrap { position: relative; width: 100%; height: 130px; background: #f8f9fc; }
+        .pcard-img {
+            width: 100%; height: 100%; object-fit: contain;
+            display: block; cursor: pointer;
+        }
+        .pcard-body { padding: .65rem; }
+        .pcard-name {
+            font-size: .85rem; font-weight: 600; color: var(--text);
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden; min-height: 2.15rem; line-height: 1.3; margin-bottom: .45rem;
+            cursor: pointer;
+        }
+
+        /* ── QUICK PRICE ROW ── */
+        .price-row { display: flex; align-items: center; gap: .35rem; margin-bottom: .5rem; }
+        .price-val { font-size: 1rem; font-weight: 700; color: var(--primary); flex: 1; }
+        .price-tap-btn {
+            width: 30px; height: 30px; background: var(--primary-light); border: none;
+            border-radius: 8px; color: var(--primary); font-size: .85rem;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            flex-shrink: 0;
+        }
+        .price-tap-btn:active { background: #dde4fc; transform: scale(.92); }
+
+        .pcard-actions { display: flex; gap: .4rem; }
+        .act-btn {
+            flex: 1; padding: .42rem; border: none; border-radius: 8px;
+            font-size: .8rem; font-weight: 600; cursor: pointer;
+        }
+        .act-edit { background: var(--primary-light); color: var(--primary); }
+        .act-del  { background: var(--danger-light); color: var(--danger); }
+
+        /* ── PRESENTATION BADGE ── */
+        .pres-badge {
+            position: absolute; bottom: .45rem; left: .45rem;
+            background: rgba(0,0,0,.62); color: white;
+            font-size: .72rem; font-weight: 700;
+            padding: .18rem .55rem; border-radius: 6px;
+            backdrop-filter: blur(4px); letter-spacing: .02em;
+            max-width: calc(100% - .9rem);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* ── PRESENTATION FORM ROW ── */
+        .pres-row { display: grid; grid-template-columns: 1fr 1.1fr; gap: .5rem; }
+        .overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,.5);
+            z-index: 200; display: none; align-items: flex-end;
+        }
+        .overlay.open { display: flex; }
+
+        .sheet {
+            background: var(--surface); width: 100%;
+            border-radius: 20px 20px 0 0;
+            padding: .75rem 1rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+            max-height: 92vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            animation: slideUp .22s cubic-bezier(.25,.8,.25,1);
+        }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto .9rem; }
+        .sheet-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--text); }
+
+        /* ── FORMS ── */
+        .fgroup { margin-bottom: .85rem; }
+        .flabel { display: block; font-size: .78rem; font-weight: 600; color: var(--text-2); margin-bottom: .3rem; text-transform: uppercase; letter-spacing: .04em; }
+        .fcontrol {
+            width: 100%; padding: .75rem; border: 1.5px solid var(--border);
+            border-radius: 10px; font-size: 1rem; background: var(--surface);
+        }
+        .fcontrol:focus { outline: none; border-color: var(--primary); }
+        textarea.fcontrol { resize: vertical; min-height: 68px; }
+
+        .file-zone {
+            border: 2px dashed var(--border); border-radius: 10px;
+            padding: 1.25rem; text-align: center; cursor: pointer;
+            color: var(--text-2); font-size: .9rem; font-weight: 500;
+        }
+        .file-zone input { display: none; }
+
+        .cbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; }
+        .cbox-item {
+            display: flex; align-items: center; gap: .5rem;
+            padding: .6rem .75rem; border: 1.5px solid var(--border);
+            border-radius: 8px; cursor: pointer; font-size: .88rem;
+        }
+        .cbox-item input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+
+        /* ── BUTTONS ── */
+        .btn {
+            display: flex; align-items: center; justify-content: center; gap: .4rem;
+            padding: .8rem 1.2rem; border: none; border-radius: 10px;
+            font-size: 1rem; font-weight: 600; cursor: pointer; width: 100%;
+        }
+        .btn:active { opacity: .85; }
+        .btn:disabled { opacity: .5; }
+        .btn-primary  { background: var(--primary); color: white; }
+        .btn-danger   { background: var(--danger);  color: white; }
+        .btn-ghost    { background: var(--bg); color: var(--text); }
+        .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+
+        /* ── QUICK PRICE SHEET ── */
+        .qprice-name { font-size: .9rem; color: var(--text-2); margin-bottom: .9rem; }
+        .qprice-input {
+            width: 100%; font-size: 2.2rem; font-weight: 800; text-align: center;
+            border: 2px solid var(--border); border-radius: var(--radius);
+            padding: .75rem; color: var(--primary); background: #f8f9ff; margin-bottom: 1rem;
+        }
+        .qprice-input:focus { outline: none; border-color: var(--primary); }
+
+        /* ── DETAIL SHEET ── */
+        .det-img { width: 100%; max-height: 200px; object-fit: contain; border-radius: var(--radius); background: #f8f9fc; margin-bottom: 1rem; }
+        .det-name { font-size: 1.2rem; font-weight: 700; margin-bottom: .35rem; }
+        .det-price { font-size: 1.6rem; font-weight: 800; color: var(--primary); margin-bottom: .7rem; }
+        .det-desc { color: var(--text-2); font-size: .9rem; line-height: 1.5; margin-bottom: .75rem; }
+        .det-cats { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
+        .cat-tag { background: var(--primary-light); color: var(--primary); padding: .25rem .75rem; border-radius: 20px; font-size: .82rem; font-weight: 500; }
+
+        /* ── CATEGORIES TAB ── */
+        .scard { background: var(--surface); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+        .scard-title { font-size: .95rem; font-weight: 700; color: var(--text); margin-bottom: .75rem; display: flex; align-items: center; gap: .5rem; }
+
+        .cat-item { display: flex; align-items: center; padding: .75rem 0; border-bottom: 1px solid var(--border); }
+        .cat-item:last-child { border-bottom: none; }
+        .cat-info { flex: 1; }
+        .cat-name { font-weight: 600; font-size: .95rem; }
+        .cat-sub  { font-size: .78rem; color: var(--text-muted); margin-top: 2px; }
+        .cat-acts { display: flex; gap: .4rem; }
+        .ico-btn {
+            width: 36px; height: 36px; border: none; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem;
+        }
+        .ico-edit   { background: var(--primary-light); color: var(--primary); }
+        .ico-delete { background: var(--danger-light); color: var(--danger); }
+
+
+
+        /* ── MISC ── */
+        .empty { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+        .empty-icon { font-size: 3rem; margin-bottom: .6rem; }
+        .empty h3 { color: var(--text); margin-bottom: .3rem; }
+
+        .loading { text-align: center; padding: 2.5rem; }
+        .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto .75rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .err-msg { background: var(--danger-light); border-left: 3px solid var(--danger); padding: .6rem .75rem; border-radius: 6px; font-size: .85rem; color: var(--danger); margin-top: .5rem; display: none; }
+
+        .badge { background: var(--bg); border-radius: 20px; padding: .15rem .5rem; font-size: .78rem; color: var(--text-muted); margin-left: auto; }
+
+        .prod-count { font-size: .82rem; color: var(--text-muted); margin-bottom: .75rem; }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+    <div class="header-title">🛒 Mi Catálogo</div>
+    <button class="header-btn" id="headerRefresh" onclick="refreshData()" title="Actualizar">🔄</button>
+</header>
+
+<!-- TAB: PRODUCTOS -->
+<div class="tab active" id="tab-products">
+    <div class="search-wrap">
+        <span class="icon">🔍</span>
+        <input class="search-input" id="searchInput" placeholder="Buscar producto..." oninput="onSearch(this.value)">
+        <button class="search-clear" id="searchClear" onclick="clearSearch()">×</button>
+    </div>
+
+    <div class="filter-bar">
+        <select class="filter-select" id="catSelect" onchange="onCatSelect(this)">
+            <option value="">🏷️ Todas las categorías</option>
+        </select>
+        <select class="sort-select" id="sortSelect" onchange="renderGrid()">
+            <option value="recent">🕐 Recientes</option>
+            <option value="az">🔤 A–Z</option>
+            <option value="price_asc">💲↑ Precio</option>
+            <option value="price_desc">💲↓ Precio</option>
+        </select>
+        <button class="clear-filters-btn" id="clearFiltersBtn" onclick="clearFilters()" title="Limpiar filtros">✕</button>
+    </div>
+
+    <div class="loading" id="loadingEl">
+        <div class="spinner"></div>
+        <p style="color:var(--text-muted)">Cargando...</p>
+    </div>
+
+    <div class="empty" id="emptyEl" style="display:none">
+        <div class="empty-icon">📦</div>
+        <h3>Sin productos</h3>
+        <p>Usa el botón + para agregar uno</p>
+    </div>
+
+    <div class="prod-count" id="prodCount" style="display:none"></div>
+    <div class="grid" id="grid"></div>
+</div>
+
+<!-- TAB: CATEGORÍAS -->
+<div class="tab" id="tab-categories">
+    <div class="scard">
+        <div class="scard-title">➕ Nueva categoría</div>
+        <form onsubmit="addCategory(event)">
+            <div class="fgroup">
+                <input class="fcontrol" id="newCatName" placeholder="Nombre *" required>
+            </div>
+            <div class="fgroup">
+                <input class="fcontrol" id="newCatDesc" placeholder="Descripción (opcional)">
+            </div>
+            <button type="submit" class="btn btn-primary" id="addCatBtn">Agregar categoría</button>
+            <div class="err-msg" id="catAddErr"></div>
+        </form>
+    </div>
+
+    <div class="scard">
+        <div class="scard-title">🏷️ Mis categorías <span class="badge" id="catBadge">0</span></div>
+        <div id="catList">
+            <div class="loading"><div class="spinner"></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fab" onclick="openProductSheet()">＋</button>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+    <button class="nav-btn active" onclick="switchTab('products',this)">
+        <span class="nav-icon">📦</span><span>Productos</span><div class="nav-dot"></div>
+    </button>
+    <button class="nav-btn" onclick="switchTab('categories',this)">
+        <span class="nav-icon">🏷️</span><span>Categorías</span><div class="nav-dot"></div>
+    </button>
+
+</nav>
+
+<!-- ════════════════ SHEETS ════════════════ -->
+
+<!-- PRODUCTO FORM -->
+<div class="overlay" id="productOverlay" onclick="bgClose(event,'productOverlay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="prodSheetTitle">Nuevo Producto</div>
+    <form id="productForm" onsubmit="submitProduct(event)">
+        <div class="fgroup">
+            <label class="flabel">Nombre *</label>
+            <input class="fcontrol" id="pName" placeholder="Ej: Coca-Cola 600ml" required>
+        </div>
+        <div class="fgroup">
+            <label class="flabel">Precio</label>
+            <input class="fcontrol" id="pPrice" type="number" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
+        </div>
+        <div class="fgroup">
+            <label class="flabel">Descripción</label>
+            <textarea class="fcontrol" id="pDesc" placeholder="Descripción opcional (presentación, marca, etc.)"></textarea>
+        </div>
+        <div class="fgroup">
+            <label class="flabel">Presentación</label>
+            <div class="pres-row">
+                <input class="fcontrol" id="pPresQty" type="text" placeholder="Ej: 600, 1.5, 6" inputmode="decimal">
+                <select class="fcontrol" id="pPresUnit">
+                    <option value="">— Unidad —</option>
+                    <option value="ml">ml</option>
+                    <option value="L">L</option>
+                    <option value="g">g</option>
+                    <option value="kg">kg</option>
+                    <option value="pzas">pzas</option>
+                    <option value="paquete">paquete</option>
+                    <option value="caja">caja</option>
+                    <option value="bolsa">bolsa</option>
+                    <option value="lata">lata</option>
+                    <option value="botella">botella</option>
+                    <option value="bote">bote</option>
+                    <option value="rollo">rollo</option>
+                </select>
+            </div>
+        </div>
+        <div class="fgroup">
+            <label class="flabel">Imagen</label>
+            <!-- Imagen actual (solo visible al editar) -->
+            <div id="currentImgRow" style="display:none; align-items:center; gap:.75rem; margin-bottom:.6rem; background:var(--bg); border-radius:10px; padding:.5rem .75rem;">
+                <img id="currentImgThumb" src="" alt="actual" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:white;">
+                <span style="font-size:.8rem;color:var(--text-muted)">Imagen actual — si no seleccionas una nueva, se conserva esta</span>
+            </div>
+            <label class="file-zone" id="fileZoneLabel">
+                <input type="file" id="pImg" accept="image/*" onchange="onImgPick(this)">
+                <span id="fileZoneText">📷 Toca para agregar imagen</span>
+            </label>
+            <div id="removeBgRow" style="display:none; margin-top:.6rem; align-items:center; justify-content:space-between; background:var(--bg); border-radius:10px; padding:.65rem .9rem;">
+                <div>
+                    <div style="font-size:.88rem; font-weight:600; color:var(--text)">✂️ Quitar fondo</div>
+                    <div style="font-size:.75rem; color:var(--text-muted); margin-top:2px">Activo por defecto</div>
+                </div>
+                <label style="position:relative; display:inline-block; width:44px; height:26px; flex-shrink:0">
+                    <input type="checkbox" id="removeBgToggle" checked style="opacity:0;width:0;height:0">
+                    <span id="toggleTrack" style="position:absolute;inset:0;background:var(--primary);border-radius:13px;cursor:pointer;transition:background .2s">
+                        <span id="toggleThumb" style="position:absolute;left:3px;top:3px;width:20px;height:20px;background:white;border-radius:50%;transition:transform .2s;transform:translateX(18px)"></span>
+                    </span>
+                </label>
+            </div>
+        </div>
+        <div class="fgroup">
+            <label class="flabel">Categorías</label>
+            <div class="cbox-grid" id="prodCats"></div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="prodSaveBtn" style="margin-top:.25rem">Guardar</button>
+        <div class="err-msg" id="prodErr"></div>
+    </form>
+  </div>
+</div>
+
+<!-- QUICK PRICE -->
+<div class="overlay" id="qpOverlay" onclick="bgClose(event,'qpOverlay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Editar precio</div>
+    <div class="qprice-name" id="qpName"></div>
+    <input class="qprice-input" id="qpInput" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00">
+    <div class="btn-row" style="margin-bottom:.25rem">
+        <button class="btn btn-ghost" onclick="close$('qpOverlay')">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveQuickPrice()">Guardar precio</button>
+    </div>
+    <div class="err-msg" id="qpErr"></div>
+  </div>
+</div>
+
+<!-- DETAIL -->
+<div class="overlay" id="detOverlay" onclick="bgClose(event,'detOverlay')">
+  <div class="sheet" id="detContent"></div>
+</div>
+
+<!-- EDIT CATEGORY -->
+<div class="overlay" id="catEditOverlay" onclick="bgClose(event,'catEditOverlay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Editar categoría</div>
+    <div class="fgroup"><label class="flabel">Nombre *</label><input class="fcontrol" id="eCatName" required></div>
+    <div class="fgroup"><label class="flabel">Descripción</label><input class="fcontrol" id="eCatDesc"></div>
+    <div class="btn-row">
+        <button class="btn btn-ghost" onclick="close$('catEditOverlay')">Cancelar</button>
+        <button class="btn btn-primary" onclick="submitEditCat()">Guardar</button>
+    </div>
+    <div class="err-msg" id="catEditErr"></div>
+  </div>
+</div>
+
+<script>
+// ─────── STATE ───────
+let products=[], categories=[], activeFilter='', editProdId=null, quickPriceId=null, editCatId=null;
+
+// ─────── INIT ───────
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await Promise.all([loadProducts(), loadCategories()]);
+        renderAll();
+    } catch(e) { console.error(e); }
+    finally { document.getElementById('loadingEl').style.display = 'none'; }
+});
+
+async function loadProducts() {
+    const r = await fetch('/api/products');
+    products = await r.json();
+}
+async function loadCategories() {
+    const r = await fetch('/api/categories');
+    categories = await r.json();
+}
+function renderAll() {
+    renderGrid();
+    renderFilterBar();
+    renderCatList();
+    document.getElementById('prodCount').style.display = products.length ? 'block' : 'none';
+}
+
+async function refreshData() {
+    const btn = document.getElementById('headerRefresh');
+    btn.style.animation = 'spin .6s linear';
+    await Promise.all([loadProducts(), loadCategories()]);
+    renderAll();
+    setTimeout(() => btn.style.animation = '', 650);
+}
+
+// ─────── TABS ───────
+function switchTab(id, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-'+id).classList.add('active');
+    el.classList.add('active');
+    document.getElementById('fab').style.display = id === 'products' ? 'flex' : 'none';
+}
+
+// ─────── PRODUCTS ───────
+function renderGrid() {
+    const q    = document.getElementById('searchInput').value.toLowerCase();
+    const sort = document.getElementById('sortSelect')?.value || 'recent';
+
+    let filtered = products.filter(p => {
+        const ms = !q || p.name.toLowerCase().includes(q) || (p.description||'').toLowerCase().includes(q);
+        const mc = !activeFilter || (p.categories||[]).includes(activeFilter);
+        return ms && mc;
+    });
+
+    // Ordenar
+    if      (sort === 'az')         filtered.sort((a,b) => a.name.localeCompare(b.name, 'es'));
+    else if (sort === 'price_asc')  filtered.sort((a,b) => (a.price||0) - (b.price||0));
+    else if (sort === 'price_desc') filtered.sort((a,b) => (b.price||0) - (a.price||0));
+
+    const grid  = document.getElementById('grid');
+    const empty = document.getElementById('emptyEl');
+    const count = document.getElementById('prodCount');
+
+    // Botón limpiar filtros
+    document.getElementById('clearFiltersBtn').classList.toggle('show', !!(activeFilter || q));
+
+    const catName = activeFilter ? categories.find(c=>c.id===activeFilter)?.name : '';
+    count.textContent = `${filtered.length} producto${filtered.length!==1?'s':''}${catName ? ' · '+catName : ''}`;
+    count.style.display = 'block';
+
+    if (!filtered.length) { grid.innerHTML=''; empty.style.display='block'; return; }
+    empty.style.display = 'none';
+
+    grid.innerHTML = filtered.map(p => {
+        const pres = [p.presentation_qty, p.presentation_unit].filter(Boolean).join(' ');
+        return `
+        <div class="pcard">
+            <div class="pcard-img-wrap" onclick="showDetail('${p.id}')">
+                <img class="pcard-img" src="/static/images/${p.image||'placeholder.webp'}"
+                     alt="${escH(p.name)}" onerror="this.src='/static/images/placeholder.webp'"
+                     loading="lazy">
+                ${pres ? `<div class="pres-badge">${escH(pres)}</div>` : ''}
+            </div>
+            <div class="pcard-body">
+                <div class="pcard-name" onclick="showDetail('${p.id}')">${escH(p.name)}</div>
+                <div class="price-row">
+                    <span class="price-val">$${(p.price||0).toFixed(2)}</span>
+                    <button class="price-tap-btn" onclick="openQuickPrice('${p.id}')" title="Editar precio">✏️</button>
+                </div>
+                <div class="pcard-actions">
+                    <button class="act-btn act-edit" onclick="openEditProd('${p.id}')">Editar</button>
+                    <button class="act-btn act-del"  onclick="deleteProd('${p.id}')">Borrar</button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderFilterBar() {
+    const sel = document.getElementById('catSelect');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">🏷️ Todas las categorías</option>' +
+        categories.map(c => `<option value="${c.id}" ${activeFilter===c.id?'selected':''}>${escH(c.name)}</option>`).join('');
+    // Restaurar selección si sigue existiendo
+    if (current) sel.value = current;
+    sel.classList.toggle('has-filter', !!activeFilter);
+}
+
+function onCatSelect(sel) {
+    activeFilter = sel.value;
+    sel.classList.toggle('has-filter', !!activeFilter);
+    renderGrid();
+}
+
+function clearFilters() {
+    activeFilter = '';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchClear').classList.remove('show');
+    document.getElementById('catSelect').value = '';
+    document.getElementById('catSelect').classList.remove('has-filter');
+    renderGrid();
+}
+
+function onSearch(v) {
+    document.getElementById('searchClear').classList.toggle('show', v.length>0);
+    renderGrid();
+}
+function clearSearch() {
+    document.getElementById('searchInput').value='';
+    document.getElementById('searchClear').classList.remove('show');
+    renderGrid();
+}
+
+// ─────── PRODUCT SHEET ───────
+function openProductSheet() {
+    editProdId = null;
+    document.getElementById('prodSheetTitle').textContent = 'Nuevo Producto';
+    document.getElementById('productForm').reset();
+    document.getElementById('prodErr').style.display='none';
+    document.getElementById('removeBgRow').style.display = 'none';
+    document.getElementById('currentImgRow').style.display = 'none';
+    document.getElementById('fileZoneText').textContent = '📷 Toca para agregar imagen';
+    document.getElementById('pPresQty').value  = '';
+    document.getElementById('pPresUnit').value = '';
+    document.getElementById('removeBgToggle').checked = true;
+    renderProdCats([]);
+    open$('productOverlay');
+}
+
+function openEditProd(id) {
+    const p = products.find(x=>x.id===id);
+    if (!p) return;
+    editProdId = id;
+    document.getElementById('prodSheetTitle').textContent = 'Editar Producto';
+    document.getElementById('pName').value  = p.name;
+    document.getElementById('pPrice').value = p.price||'';
+    document.getElementById('pDesc').value  = p.description||'';
+    document.getElementById('pPresQty').value  = p.presentation_qty||'';
+    document.getElementById('pPresUnit').value = p.presentation_unit||'';
+    document.getElementById('prodErr').style.display='none';
+
+    // ⚠️ Resetear imagen — sin esto el archivo anterior se reenvía
+    const imgInput = document.getElementById('pImg');
+    imgInput.value = '';                                       // limpia el file input
+    document.getElementById('removeBgRow').style.display  = 'none';
+    document.getElementById('fileZoneText').textContent   = '📷 Cambiar imagen (opcional)';
+    document.getElementById('removeBgToggle').checked     = true;
+
+    // Mostrar imagen actual del producto
+    const thumb = document.getElementById('currentImgThumb');
+    const thumbRow = document.getElementById('currentImgRow');
+    if (p.image && p.image !== 'placeholder.webp') {
+        thumb.src = `/static/images/${p.image}`;
+        thumbRow.style.display = 'flex';
+    } else {
+        thumbRow.style.display = 'none';
+    }
+
+    renderProdCats(p.categories||[]);
+    open$('productOverlay');
+}
+
+function renderProdCats(sel) {
+    document.getElementById('prodCats').innerHTML = categories.map(c=>`
+        <label class="cbox-item">
+            <input type="checkbox" value="${c.id}" ${sel.includes(c.id)?'checked':''}>
+            ${escH(c.name)}
+        </label>`).join('');
+}
+
+async function submitProduct(e) {
+    e.preventDefault();
+    const btn = document.getElementById('prodSaveBtn');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+
+    const fd = new FormData();
+    fd.append('name',              document.getElementById('pName').value.trim());
+    fd.append('price',             document.getElementById('pPrice').value||'0');
+    fd.append('description',       document.getElementById('pDesc').value.trim());
+    fd.append('presentation_qty',  document.getElementById('pPresQty').value.trim());
+    fd.append('presentation_unit', document.getElementById('pPresUnit').value);
+    const img = document.getElementById('pImg').files[0];
+    if (img) {
+        fd.append('image', img);
+        fd.append('remove_bg', document.getElementById('removeBgToggle').checked ? '1' : '0');
+    }
+    document.querySelectorAll('#prodCats input:checked').forEach(cb=>fd.append('categories',cb.value));
+
+    try {
+        const url    = editProdId ? `/api/products/${editProdId}` : '/api/products';
+        const method = editProdId ? 'PUT' : 'POST';
+        const r = await fetch(url,{method,body:fd});
+        if (!r.ok) { const e=await r.json(); throw new Error(e.error||'Error'); }
+        await loadProducts();
+        close$('productOverlay');
+        renderAll();
+    } catch(err) { showErr('prodErr', err.message); }
+    finally { btn.disabled=false; btn.textContent='Guardar'; }
+}
+
+async function deleteProd(id) {
+    if (!confirm('¿Eliminar este producto?')) return;
+    const r = await fetch(`/api/products/${id}`,{method:'DELETE'});
+    if (!r.ok) { alert('Error al eliminar'); return; }
+    await loadProducts();
+    close$('detOverlay');
+    renderAll();
+}
+
+// ─────── QUICK PRICE ───────
+function openQuickPrice(id) {
+    const p = products.find(x=>x.id===id);
+    if (!p) return;
+    quickPriceId = id;
+    document.getElementById('qpName').textContent = p.name;
+    document.getElementById('qpInput').value = p.price||'';
+    document.getElementById('qpErr').style.display = 'none';
+    open$('qpOverlay');
+    setTimeout(()=>{ document.getElementById('qpInput').focus(); document.getElementById('qpInput').select(); }, 300);
+}
+
+async function saveQuickPrice() {
+    const val = parseFloat(document.getElementById('qpInput').value);
+    if (isNaN(val)||val<0) { showErr('qpErr','Ingresa un precio válido'); return; }
+    const p = products.find(x=>x.id===quickPriceId);
+    if (!p) return;
+
+    const fd = new FormData();
+    fd.append('name',              p.name);
+    fd.append('price',             val);
+    fd.append('description',       p.description||'');
+    fd.append('presentation_qty',  p.presentation_qty||'');
+    fd.append('presentation_unit', p.presentation_unit||'');
+    (p.categories||[]).forEach(c=>fd.append('categories',c));
+
+    try {
+        const r = await fetch(`/api/products/${quickPriceId}`,{method:'PUT',body:fd});
+        if (!r.ok) throw new Error('Error al actualizar');
+        await loadProducts();
+        close$('qpOverlay');
+        renderGrid();
+    } catch(err) { showErr('qpErr',err.message); }
+}
+
+// ─────── PRODUCT DETAIL ───────
+function showDetail(id) {
+    const p = products.find(x=>x.id===id);
+    if (!p) return;
+    const cats = (p.categories||[]).map(cid=>categories.find(c=>c.id===cid)?.name).filter(Boolean);
+    const pres = [p.presentation_qty, p.presentation_unit].filter(Boolean).join(' ');
+    document.getElementById('detContent').innerHTML = `
+        <div class="sheet-handle"></div>
+        <img class="det-img" src="/static/images/${p.image||'placeholder.webp'}"
+             alt="${escH(p.name)}" onerror="this.src='/static/images/placeholder.webp'">
+        <div class="det-name">${escH(p.name)}${pres ? ` <span style="font-size:.95rem;font-weight:500;color:var(--text-muted)">${escH(pres)}</span>` : ''}</div>
+        <div class="det-price">$${(p.price||0).toFixed(2)}</div>
+        ${p.description?`<div class="det-desc">${escH(p.description)}</div>`:''}
+        ${cats.length?`<div class="det-cats">${cats.map(n=>`<span class="cat-tag">${escH(n)}</span>`).join('')}</div>`:''}
+        <div class="btn-row">
+            <button class="btn btn-ghost" onclick="openEditProd('${id}');close$('detOverlay')">✏️ Editar</button>
+            <button class="btn btn-danger" onclick="deleteProd('${id}')">🗑️ Borrar</button>
+        </div>`;
+    open$('detOverlay');
+}
+
+// ─────── CATEGORIES ───────
+function renderCatList() {
+    document.getElementById('catBadge').textContent = categories.length;
+    if (!categories.length) {
+        document.getElementById('catList').innerHTML='<div style="color:var(--text-muted);font-size:.9rem;padding:.5rem 0">Aún no hay categorías</div>';
+        return;
+    }
+    document.getElementById('catList').innerHTML = categories.map(c=>{
+        const n = products.filter(p=>(p.categories||[]).includes(c.id)).length;
+        return `<div class="cat-item">
+            <div class="cat-info">
+                <div class="cat-name">${escH(c.name)}</div>
+                <div class="cat-sub">${n} producto${n!==1?'s':''}</div>
+            </div>
+            <div class="cat-acts">
+                <button class="ico-btn ico-edit"   onclick="openEditCat('${c.id}')">✏️</button>
+                <button class="ico-btn ico-delete" onclick="deleteCat('${c.id}')">🗑️</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function addCategory(e) {
+    e.preventDefault();
+    const btn = document.getElementById('addCatBtn');
+    btn.disabled=true;
+    const name = document.getElementById('newCatName').value.trim();
+    const desc = document.getElementById('newCatDesc').value.trim();
+    try {
+        const r = await fetch('/api/categories',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,description:desc})});
+        if (!r.ok) { const e=await r.json(); throw new Error(e.error); }
+        await loadCategories();
+        document.getElementById('newCatName').value='';
+        document.getElementById('newCatDesc').value='';
+        document.getElementById('catAddErr').style.display='none';
+        renderAll();
+    } catch(err) { showErr('catAddErr',err.message); }
+    finally { btn.disabled=false; }
+}
+
+function openEditCat(id) {
+    const c = categories.find(x=>x.id===id);
+    if (!c) return;
+    editCatId=id;
+    document.getElementById('eCatName').value = c.name;
+    document.getElementById('eCatDesc').value = c.description||'';
+    document.getElementById('catEditErr').style.display='none';
+    open$('catEditOverlay');
+}
+
+async function submitEditCat() {
+    const name = document.getElementById('eCatName').value.trim();
+    const desc = document.getElementById('eCatDesc').value.trim();
+    if (!name) { showErr('catEditErr','El nombre es requerido'); return; }
+    try {
+        const r = await fetch(`/api/categories/${editCatId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,description:desc})});
+        if (!r.ok) throw new Error('Error al actualizar');
+        await loadCategories();
+        close$('catEditOverlay');
+        renderAll();
+    } catch(err) { showErr('catEditErr',err.message); }
+}
+
+async function deleteCat(id) {
+    if (!confirm('¿Eliminar esta categoría? Se quitará de todos los productos.')) return;
+    const r = await fetch(`/api/categories/${id}`,{method:'DELETE'});
+    if (!r.ok) { alert('Error al eliminar'); return; }
+    await Promise.all([loadCategories(), loadProducts()]);
+    renderAll();
+}
+
+// ─────── TOGGLE QUITAR FONDO ───────
+function onImgPick(input) {
+    const row  = document.getElementById('removeBgRow');
+    const text = document.getElementById('fileZoneText');
+    if (input.files && input.files[0]) {
+        text.textContent = '✅ ' + input.files[0].name;
+        row.style.display = 'flex';
+    } else {
+        text.textContent = '📷 Toca para agregar imagen';
+        row.style.display = 'none';
+    }
+}
+
+// Sincronizar apariencia del toggle con el checkbox
+document.addEventListener('DOMContentLoaded', () => {
+    const cb    = document.getElementById('removeBgToggle');
+    const track = document.getElementById('toggleTrack');
+    const thumb = document.getElementById('toggleThumb');
+    const sync  = () => {
+        track.style.background = cb.checked ? 'var(--primary)' : 'var(--border)';
+        thumb.style.transform  = cb.checked ? 'translateX(18px)' : 'translateX(0)';
+    };
+    cb.addEventListener('change', sync);
+    sync();
+});
+
+// ─────── SHEET HELPERS ───────
+function open$(id)  { document.getElementById(id).classList.add('open'); }
+function close$(id) { document.getElementById(id).classList.remove('open'); }
+function bgClose(e,id) { if (e.target===document.getElementById(id)) close$(id); }
+
+// ─────── UTILS ───────
+function showErr(id,msg) { const el=document.getElementById(id); el.textContent='⚠️ '+msg; el.style.display='block'; }
+function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+</script>
+</body>
+</html>
