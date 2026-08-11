@@ -2,7 +2,6 @@
     'use strict';
 
     const searchInput = document.getElementById('search-input');
-    const chipsEl = document.getElementById('category-chips');
     const gridEl = document.getElementById('product-grid');
     const emptyEl = document.getElementById('empty-state');
     const loadingEl = document.getElementById('loading-state');
@@ -44,6 +43,7 @@
     const categoriesDrawerBtn = document.getElementById('categories-drawer-btn');
     const categoryDrawerModal = document.getElementById('category-drawer-modal');
     const categoryDrawerListEl = document.getElementById('category-drawer-list');
+    const categorySelectorLabelEl = document.getElementById('category-selector-label');
 
     const state = {
         query: '',
@@ -186,27 +186,20 @@
         });
     }
 
-    // ─────────────────── CATEGORY CHIPS ───────────────────
+    // ─────────────────── CATEGORY SELECTOR ───────────────────
 
     function selectCategory(catId) {
         state.categoryId = catId;
         state.specialFilter = null;
-        renderChips();
+        updateCategorySelector();
         renderAdminFilterChips();
         loadProducts();
     }
 
-    function renderChips() {
-        const all = [{ id: null, name: 'Todas' }, ...state.categories];
-        chipsEl.innerHTML = '';
-        for (const cat of all) {
-            const chip = document.createElement('button');
-            chip.type = 'button';
-            chip.className = 'chip' + (state.categoryId === cat.id ? ' chip--active' : '');
-            chip.textContent = cat.name;
-            chip.addEventListener('click', () => selectCategory(cat.id));
-            chipsEl.appendChild(chip);
-        }
+    function updateCategorySelector() {
+        const current = state.categories.find((c) => c.id === state.categoryId);
+        categorySelectorLabelEl.textContent = current ? current.name : 'Todas las categorías';
+        categoriesDrawerBtn.classList.toggle('category-selector--active', state.categoryId !== null);
         renderCategoryDrawerList();
     }
 
@@ -298,7 +291,7 @@
             state.query = '';
             state.categoryId = null;
             searchInput.value = '';
-            renderChips();
+            updateCategorySelector();
             renderAdminFilterChips();
             loadProducts();
         });
@@ -323,7 +316,7 @@
 
     async function reloadCategories() {
         state.categories = await fetchJSON('/api/categories');
-        renderChips();
+        updateCategorySelector();
     }
 
     function renderCategoryList() {
@@ -636,7 +629,7 @@
         } catch (err) {
             console.error('No se pudieron cargar las categorías', err);
         }
-        renderChips();
+        updateCategorySelector();
         await refreshAdminStatus();
 
         searchInput.addEventListener('input', debounce((e) => {

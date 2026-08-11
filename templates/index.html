@@ -30,10 +30,11 @@
         <button id="scan-btn" class="searchbar__scan-btn" type="button" aria-label="Escanear código de barras">📷</button>
     </div>
 
-    <div class="chips-row">
-        <button id="categories-drawer-btn" class="chips__menu-btn" type="button" aria-label="Ver todas las categorías">☰</button>
-        <nav id="category-chips" class="chips" aria-label="Categorías"></nav>
-    </div>
+    <button id="categories-drawer-btn" class="category-selector" type="button" aria-haspopup="true">
+        <span class="category-selector__icon">🏷️</span>
+        <span id="category-selector-label" class="category-selector__label">Todas las categorías</span>
+        <span class="category-selector__arrow">▾</span>
+    </button>
 
     <div id="admin-bar" class="admin-bar" hidden>
         <span class="admin-bar__label">🔓 Modo administrador</span>
