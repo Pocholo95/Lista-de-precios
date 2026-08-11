@@ -1,0 +1,7 @@
+────────────────────────────────────────
+🛒  Catálogo de productos
+🌐  http://localhost:5000  (o http://<IP-de-esta-PC>:5000 desde el teléfono)
+⚠️   Usando PIN de admin por defecto (1234). Cámbialo con la variable de entorno ADMIN_PIN.
+────────────────────────────────────────
+ * Serving Flask app 'app'
+ * Debug mode: on
