@@ -41,6 +41,10 @@
     const adminFiltersEl = document.getElementById('admin-filters');
     const adminFilterButtons = Array.from(adminFiltersEl.querySelectorAll('[data-filter]'));
 
+    const categoriesDrawerBtn = document.getElementById('categories-drawer-btn');
+    const categoryDrawerModal = document.getElementById('category-drawer-modal');
+    const categoryDrawerListEl = document.getElementById('category-drawer-list');
+
     const state = {
         query: '',
         categoryId: null,
@@ -84,6 +88,7 @@
         pin: pinModal,
         product: productModal,
         categories: categoriesModal,
+        'category-drawer': categoryDrawerModal,
     };
 
     document.querySelectorAll('[data-close]').forEach((el) => {
@@ -183,6 +188,14 @@
 
     // ─────────────────── CATEGORY CHIPS ───────────────────
 
+    function selectCategory(catId) {
+        state.categoryId = catId;
+        state.specialFilter = null;
+        renderChips();
+        renderAdminFilterChips();
+        loadProducts();
+    }
+
     function renderChips() {
         const all = [{ id: null, name: 'Todas' }, ...state.categories];
         chipsEl.innerHTML = '';
@@ -191,16 +204,34 @@
             chip.type = 'button';
             chip.className = 'chip' + (state.categoryId === cat.id ? ' chip--active' : '');
             chip.textContent = cat.name;
-            chip.addEventListener('click', () => {
-                state.categoryId = cat.id;
-                state.specialFilter = null;
-                renderChips();
-                renderAdminFilterChips();
-                loadProducts();
-            });
+            chip.addEventListener('click', () => selectCategory(cat.id));
             chipsEl.appendChild(chip);
         }
+        renderCategoryDrawerList();
     }
+
+    function renderCategoryDrawerList() {
+        const all = [{ id: null, name: 'Todas' }, ...state.categories];
+        categoryDrawerListEl.innerHTML = '';
+        for (const cat of all) {
+            const li = document.createElement('li');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'drawer-list__item' + (state.categoryId === cat.id ? ' drawer-list__item--active' : '');
+            btn.textContent = cat.name;
+            btn.addEventListener('click', () => {
+                selectCategory(cat.id);
+                closeModal(categoryDrawerModal);
+            });
+            li.appendChild(btn);
+            categoryDrawerListEl.appendChild(li);
+        }
+    }
+
+    categoriesDrawerBtn.addEventListener('click', () => {
+        renderCategoryDrawerList();
+        openModal(categoryDrawerModal);
+    });
 
     // ─────────────────── ADMIN MAINTENANCE FILTERS ───────────────────
 

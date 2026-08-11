@@ -30,7 +30,10 @@
         <button id="scan-btn" class="searchbar__scan-btn" type="button" aria-label="Escanear código de barras">📷</button>
     </div>
 
-    <nav id="category-chips" class="chips" aria-label="Categorías"></nav>
+    <div class="chips-row">
+        <button id="categories-drawer-btn" class="chips__menu-btn" type="button" aria-label="Ver todas las categorías">☰</button>
+        <nav id="category-chips" class="chips" aria-label="Categorías"></nav>
+    </div>
 
     <div id="admin-bar" class="admin-bar" hidden>
         <span class="admin-bar__label">🔓 Modo administrador</span>
@@ -157,6 +160,15 @@
                 <button type="button" class="btn btn--ghost" data-close="categories">Cerrar</button>
             </div>
         </div>
+    </div>
+
+    <!-- Category drawer -->
+    <div id="category-drawer-modal" class="modal modal--drawer" hidden>
+        <div class="modal__backdrop" data-close="category-drawer"></div>
+        <nav class="modal__sheet modal__sheet--drawer" aria-label="Todas las categorías">
+            <h2 class="modal__title">Categorías</h2>
+            <ul id="category-drawer-list" class="drawer-list"></ul>
+        </nav>
     </div>
 
     <!-- Barcode scanner modal -->
