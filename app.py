@@ -129,6 +129,7 @@ def add_product():
         pres_qty    = request.form.get('presentation_qty', '').strip()
         pres_unit   = request.form.get('presentation_unit', '').strip()
         visible     = request.form.get('visible', '1') == '1'
+        barcode     = request.form.get('barcode', '').strip()
 
         if not name:
             return jsonify({'error': 'El nombre es requerido'}), 400
@@ -150,7 +151,8 @@ def add_product():
             categories=categories,
             presentation_qty=pres_qty,
             presentation_unit=pres_unit,
-            visible=visible
+            visible=visible,
+            barcode=barcode
         )
         return jsonify(product), 201
 
@@ -173,6 +175,7 @@ def update_product(product_id):
         pres_qty    = request.form.get('presentation_qty', '').strip()
         pres_unit   = request.form.get('presentation_unit', '').strip()
         visible     = request.form.get('visible', '1') == '1'
+        barcode     = request.form.get('barcode', '').strip()
 
         if not name:
             return jsonify({'error': 'El nombre es requerido'}), 400
@@ -196,7 +199,8 @@ def update_product(product_id):
             categories=categories,
             presentation_qty=pres_qty,
             presentation_unit=pres_unit,
-            visible=visible
+            visible=visible,
+            barcode=barcode
         )
 
         if updated:
@@ -226,6 +230,14 @@ def delete_product(product_id):
 @app.route('/api/products/category/<category_id>', methods=['GET'])
 def get_products_by_category(category_id):
     return jsonify(db.get_products_by_category(category_id, only_visible=not is_admin()))
+
+
+@app.route('/api/products/barcode/<code>', methods=['GET'])
+def get_product_by_barcode(code):
+    product = db.get_product_by_barcode(code, only_visible=not is_admin())
+    if not product:
+        return jsonify({'error': 'Código no encontrado'}), 404
+    return jsonify(product)
 
 
 # ─── CATEGORÍAS ───

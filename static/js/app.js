@@ -30,11 +30,23 @@
     const newCategoryNameInput = document.getElementById('new-category-name');
     const categoryListEl = document.getElementById('category-list');
 
+    const scanBtn = document.getElementById('scan-btn');
+    const scanModal = document.getElementById('scan-modal');
+    const scanVideo = document.getElementById('scan-video');
+    const scanStatus = document.getElementById('scan-status');
+    const scanCancelBtn = document.getElementById('scan-cancel-btn');
+    const scanBarcodeFieldBtn = document.getElementById('scan-barcode-field-btn');
+    const fieldBarcode = document.getElementById('field-barcode');
+
+    const adminFiltersEl = document.getElementById('admin-filters');
+    const adminFilterButtons = Array.from(adminFiltersEl.querySelectorAll('[data-filter]'));
+
     const state = {
         query: '',
         categoryId: null,
         categories: [],
         isAdmin: false,
+        specialFilter: null,
     };
 
     const priceFormatter = new Intl.NumberFormat('es-MX', {
@@ -80,6 +92,95 @@
         });
     });
 
+    // ─────────────────── BARCODE SCANNER ───────────────────
+
+    const scanSupported = 'BarcodeDetector' in window;
+    let scanStream = null;
+    let scanCancelled = false;
+
+    if (!scanSupported) {
+        scanBtn.disabled = true;
+        if (scanBarcodeFieldBtn) scanBarcodeFieldBtn.disabled = true;
+    }
+
+    function stopScanner() {
+        scanCancelled = true;
+        if (scanStream) {
+            scanStream.getTracks().forEach((track) => track.stop());
+            scanStream = null;
+        }
+        scanVideo.srcObject = null;
+        closeModal(scanModal);
+    }
+
+    async function openScanner(onResult) {
+        if (!scanSupported) {
+            alert('Tu navegador no soporta escaneo de cámara (funciona en Chrome/Android). Usa la búsqueda por texto.');
+            return;
+        }
+
+        scanCancelled = false;
+        scanStatus.textContent = 'Apunta al código de barras…';
+        openModal(scanModal);
+
+        try {
+            scanStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment' },
+            });
+        } catch (err) {
+            scanStatus.textContent = 'No se pudo acceder a la cámara (revisa los permisos, y que el sitio use HTTPS).';
+            return;
+        }
+
+        scanVideo.srcObject = scanStream;
+        await scanVideo.play();
+
+        const detector = new window.BarcodeDetector({
+            formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'],
+        });
+
+        const detectLoop = async () => {
+            if (scanCancelled) return;
+            try {
+                const codes = await detector.detect(scanVideo);
+                if (codes.length > 0) {
+                    const value = codes[0].rawValue;
+                    stopScanner();
+                    onResult(value);
+                    return;
+                }
+            } catch (err) {
+                // Frame sin datos válidos todavía, seguir intentando.
+            }
+            setTimeout(detectLoop, 200);
+        };
+        detectLoop();
+    }
+
+    scanCancelBtn.addEventListener('click', stopScanner);
+
+    scanBtn.addEventListener('click', () => {
+        openScanner(async (code) => {
+            searchInput.value = code;
+            try {
+                const product = await fetchJSON(`/api/products/barcode/${encodeURIComponent(code)}`);
+                state.query = product.name;
+                searchInput.value = product.name;
+                await loadProducts();
+            } catch (err) {
+                alert(`Código ${code} no encontrado en el catálogo.`);
+            }
+        });
+    });
+
+    if (scanBarcodeFieldBtn) {
+        scanBarcodeFieldBtn.addEventListener('click', () => {
+            openScanner((code) => {
+                fieldBarcode.value = code;
+            });
+        });
+    }
+
     // ─────────────────── CATEGORY CHIPS ───────────────────
 
     function renderChips() {
@@ -92,12 +193,78 @@
             chip.textContent = cat.name;
             chip.addEventListener('click', () => {
                 state.categoryId = cat.id;
+                state.specialFilter = null;
                 renderChips();
+                renderAdminFilterChips();
                 loadProducts();
             });
             chipsEl.appendChild(chip);
         }
     }
+
+    // ─────────────────── ADMIN MAINTENANCE FILTERS ───────────────────
+
+    function renderAdminFilterChips() {
+        for (const btn of adminFilterButtons) {
+            btn.classList.toggle('chip--active', state.specialFilter === btn.dataset.filter);
+        }
+    }
+
+    function normalizeName(name) {
+        return (name || '').trim().toLowerCase();
+    }
+
+    function findDuplicates(products) {
+        const byName = new Map();
+        const byBarcode = new Map();
+        for (const p of products) {
+            const nameKey = normalizeName(p.name);
+            if (nameKey) {
+                if (!byName.has(nameKey)) byName.set(nameKey, []);
+                byName.get(nameKey).push(p);
+            }
+            if (p.barcode) {
+                if (!byBarcode.has(p.barcode)) byBarcode.set(p.barcode, []);
+                byBarcode.get(p.barcode).push(p);
+            }
+        }
+        const duplicateIds = new Set();
+        for (const group of byName.values()) {
+            if (group.length > 1) group.forEach((p) => duplicateIds.add(p.id));
+        }
+        for (const group of byBarcode.values()) {
+            if (group.length > 1) group.forEach((p) => duplicateIds.add(p.id));
+        }
+        return products
+            .filter((p) => duplicateIds.has(p.id))
+            .sort((a, b) => normalizeName(a.name).localeCompare(normalizeName(b.name)));
+    }
+
+    function applySpecialFilter(products) {
+        if (state.specialFilter === 'no-photo') {
+            return products.filter((p) => p.image === 'placeholder.webp');
+        }
+        if (state.specialFilter === 'no-price') {
+            return products.filter((p) => !p.price || p.price <= 0);
+        }
+        if (state.specialFilter === 'duplicates') {
+            return findDuplicates(products);
+        }
+        return products;
+    }
+
+    adminFilterButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const key = btn.dataset.filter;
+            state.specialFilter = state.specialFilter === key ? null : key;
+            state.query = '';
+            state.categoryId = null;
+            searchInput.value = '';
+            renderChips();
+            renderAdminFilterChips();
+            loadProducts();
+        });
+    });
 
     function renderCategoryCheckboxes(selectedIds) {
         categoryCheckboxesEl.innerHTML = '';
@@ -260,16 +427,18 @@
     async function loadProducts() {
         loadingEl.hidden = false;
         try {
-            let url;
-            if (state.query || state.categoryId) {
+            let products;
+            if (state.specialFilter) {
+                const all = await fetchJSON('/api/products');
+                products = applySpecialFilter(all);
+            } else if (state.query || state.categoryId) {
                 const params = new URLSearchParams();
                 params.set('q', state.query);
                 if (state.categoryId) params.set('category', state.categoryId);
-                url = `/api/products/search?${params.toString()}`;
+                products = await fetchJSON(`/api/products/search?${params.toString()}`);
             } else {
-                url = '/api/products';
+                products = await fetchJSON('/api/products');
             }
-            const products = await fetchJSON(url);
             renderProducts(products);
         } catch (err) {
             console.error(err);
@@ -285,8 +454,13 @@
     function applyAdminUI() {
         document.body.classList.toggle('is-admin', state.isAdmin);
         adminBar.hidden = !state.isAdmin;
+        adminFiltersEl.hidden = !state.isAdmin;
         addFab.hidden = !state.isAdmin;
         adminToggleBtn.textContent = state.isAdmin ? '🔓' : '🔒';
+        if (!state.isAdmin) {
+            state.specialFilter = null;
+            renderAdminFilterChips();
+        }
     }
 
     async function refreshAdminStatus() {
@@ -344,6 +518,7 @@
         productForm.reset();
         document.getElementById('product-id').value = '';
         document.getElementById('field-visible').checked = true;
+        fieldBarcode.value = '';
         deleteBtn.hidden = true;
         renderCategoryCheckboxes([]);
     }
@@ -359,6 +534,7 @@
             document.getElementById('field-unit').value = product.presentation_unit || '';
             document.getElementById('field-description').value = product.description || '';
             document.getElementById('field-visible').checked = product.visible !== false;
+            fieldBarcode.value = product.barcode || '';
             renderCategoryCheckboxes(product.categories || []);
             deleteBtn.hidden = false;
             deleteBtn.onclick = () => deleteProduct(product.id);
@@ -380,6 +556,7 @@
         formData.set('presentation_unit', document.getElementById('field-unit').value.trim());
         formData.set('description', document.getElementById('field-description').value.trim());
         formData.set('visible', document.getElementById('field-visible').checked ? '1' : '0');
+        formData.set('barcode', fieldBarcode.value.trim());
 
         const selectedCats = Array.from(
             categoryCheckboxesEl.querySelectorAll('input:checked')
@@ -426,6 +603,10 @@
 
         searchInput.addEventListener('input', debounce((e) => {
             state.query = e.target.value.trim();
+            if (state.specialFilter) {
+                state.specialFilter = null;
+                renderAdminFilterChips();
+            }
             loadProducts();
         }, 250));
 

@@ -27,6 +27,7 @@
             placeholder="Buscar producto..."
             autocomplete="off"
         >
+        <button id="scan-btn" class="searchbar__scan-btn" type="button" aria-label="Escanear código de barras">📷</button>
     </div>
 
     <nav id="category-chips" class="chips" aria-label="Categorías"></nav>
@@ -37,6 +38,12 @@
         <button id="backup-btn" class="admin-bar__btn" type="button">💾 Respaldo</button>
         <button id="logout-btn" class="admin-bar__btn" type="button">Salir</button>
     </div>
+
+    <nav id="admin-filters" class="chips chips--admin" aria-label="Filtros de mantenimiento" hidden>
+        <button id="filter-no-photo" class="chip chip--tool" type="button" data-filter="no-photo">📷 Sin foto</button>
+        <button id="filter-no-price" class="chip chip--tool" type="button" data-filter="no-price">💲 Sin precio</button>
+        <button id="filter-duplicates" class="chip chip--tool" type="button" data-filter="duplicates">⚠️ Duplicados</button>
+    </nav>
 
     <main id="product-grid" class="grid"></main>
 
@@ -92,6 +99,14 @@
                 </div>
 
                 <label class="field">
+                    <span class="field__label">Código de barras</span>
+                    <div class="field-with-btn">
+                        <input id="field-barcode" type="text" inputmode="numeric" placeholder="Opcional">
+                        <button id="scan-barcode-field-btn" type="button" class="btn btn--ghost">📷</button>
+                    </div>
+                </label>
+
+                <label class="field">
                     <span class="field__label">Descripción</span>
                     <textarea id="field-description" rows="2"></textarea>
                 </label>
@@ -141,6 +156,16 @@
             <div class="modal__actions">
                 <button type="button" class="btn btn--ghost" data-close="categories">Cerrar</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Barcode scanner modal -->
+    <div id="scan-modal" class="modal" hidden>
+        <div class="scan-modal__content">
+            <video id="scan-video" class="scan-modal__video" playsinline muted autoplay></video>
+            <div class="scan-modal__guide"></div>
+            <p id="scan-status" class="scan-modal__status">Apunta al código de barras…</p>
+            <button id="scan-cancel-btn" type="button" class="btn btn--ghost scan-modal__cancel">Cancelar</button>
         </div>
     </div>
 

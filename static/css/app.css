@@ -74,10 +74,13 @@ body.is-admin .header__admin-btn {
     z-index: 19;
     background: var(--primary);
     padding: 0 16px 14px;
+    display: flex;
+    gap: 8px;
 }
 
 .searchbar input {
-    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
     height: 48px;
     border: none;
     border-radius: var(--radius);
@@ -89,6 +92,20 @@ body.is-admin .header__admin-btn {
 
 .searchbar input:focus {
     outline: 3px solid rgba(255, 255, 255, 0.5);
+}
+
+.searchbar__scan-btn {
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    border: none;
+    border-radius: var(--radius);
+    background: rgba(255, 255, 255, 0.2);
+    font-size: 1.2rem;
+}
+
+.searchbar__scan-btn:disabled {
+    opacity: 0.4;
 }
 
 /* ── CATEGORY CHIPS ── */
@@ -123,6 +140,28 @@ body.is-admin .header__admin-btn {
     background: var(--primary);
     color: #fff;
     border-color: var(--primary);
+}
+
+/* ── ADMIN MAINTENANCE FILTERS ── */
+.chips--admin {
+    padding-top: 0;
+    padding-bottom: 8px;
+}
+
+.chips--admin[hidden] {
+    display: none;
+}
+
+.chip--tool {
+    background: #fff3cd;
+    color: #7a5c00;
+    border-color: #f1d98b;
+}
+
+.chip--tool.chip--active {
+    background: #b45309;
+    color: #fff;
+    border-color: #b45309;
 }
 
 /* ── ADMIN BAR ── */
@@ -319,6 +358,22 @@ body.is-admin .card {
     flex: 1 1 0;
 }
 
+.field-with-btn {
+    display: flex;
+    gap: 8px;
+}
+
+.field-with-btn input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.field-with-btn .btn {
+    flex: 0 0 auto;
+    padding: 0 14px;
+    min-height: 44px;
+}
+
 .field--switch {
     display: flex;
     align-items: center;
@@ -483,6 +538,62 @@ body.is-admin .card {
     color: var(--primary-dark);
     flex: 0 0 auto;
     white-space: nowrap;
+}
+
+/* ── SCAN MODAL ── */
+#scan-modal {
+    background: #000;
+    align-items: stretch;
+    justify-content: stretch;
+}
+
+#scan-modal[hidden] {
+    display: none;
+}
+
+.scan-modal__content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.scan-modal__video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.scan-modal__guide {
+    position: relative;
+    width: 80%;
+    max-width: 340px;
+    aspect-ratio: 2 / 1;
+    border: 3px solid rgba(255, 255, 255, 0.85);
+    border-radius: 12px;
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.35);
+}
+
+.scan-modal__status {
+    position: relative;
+    margin-top: 18px;
+    color: #fff;
+    font-size: 0.95rem;
+    text-align: center;
+    padding: 0 24px;
+}
+
+.scan-modal__cancel {
+    position: relative;
+    margin-top: 24px;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 /* ── STATES ── */

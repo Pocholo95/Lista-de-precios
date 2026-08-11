@@ -41,7 +41,8 @@ class ProductDatabase:
                     updated_at          TEXT,
                     presentation_qty    TEXT DEFAULT '',
                     presentation_unit   TEXT DEFAULT '',
-                    visible             INTEGER NOT NULL DEFAULT 1
+                    visible             INTEGER NOT NULL DEFAULT 1,
+                    barcode             TEXT DEFAULT ''
                 );
 
                 CREATE TABLE IF NOT EXISTS product_categories (
@@ -64,10 +65,12 @@ class ProductDatabase:
                 ('presentation_qty', "TEXT DEFAULT ''"),
                 ('presentation_unit', "TEXT DEFAULT ''"),
                 ('visible', 'INTEGER NOT NULL DEFAULT 1'),
+                ('barcode', "TEXT DEFAULT ''"),
             ]:
                 if col not in existing_cols:
                     conn.execute(f'ALTER TABLE products ADD COLUMN {col} {ddl_default}')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_products_visible ON products(visible)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)')
 
     # ─────────────────── HELPERS ───────────────────
 
@@ -96,6 +99,17 @@ class ProductDatabase:
             row = conn.execute('SELECT * FROM products WHERE id = ?', (product_id,)).fetchone()
             return self._with_categories(row, conn)
 
+    def get_product_by_barcode(self, barcode, only_visible=False):
+        if not barcode:
+            return None
+        visible_clause = 'AND visible = 1' if only_visible else ''
+        with self._conn() as conn:
+            row = conn.execute(
+                f'SELECT * FROM products WHERE barcode = ? {visible_clause} LIMIT 1',
+                (barcode,)
+            ).fetchone()
+            return self._with_categories(row, conn)
+
     def search_products(self, query, category_id=None, only_visible=False):
         q = f'%{query}%'
         visible_clause = 'AND p.visible = 1' if only_visible else ''
@@ -119,37 +133,39 @@ class ProductDatabase:
             return [self._with_categories(r, conn) for r in rows]
 
     def add_product(self, name, description, price, image, categories,
-                     presentation_qty='', presentation_unit='', visible=True):
+                     presentation_qty='', presentation_unit='', visible=True, barcode=''):
         pid = str(uuid.uuid4())
         now = datetime.now().isoformat()
         with self._conn() as conn:
             conn.execute(
                 'INSERT INTO products (id, name, description, price, image, created_at, '
-                'updated_at, presentation_qty, presentation_unit, visible) VALUES (?,?,?,?,?,?,?,?,?,?)',
+                'updated_at, presentation_qty, presentation_unit, visible, barcode) '
+                'VALUES (?,?,?,?,?,?,?,?,?,?,?)',
                 (pid, name, description, float(price), image, now, now,
-                 presentation_qty, presentation_unit, int(bool(visible)))
+                 presentation_qty, presentation_unit, int(bool(visible)), barcode)
             )
             for cat_id in categories:
                 conn.execute('INSERT OR IGNORE INTO product_categories VALUES (?,?)', (pid, cat_id))
         return self.get_product_by_id(pid)
 
     def update_product(self, product_id, name, description, price, image=None,
-                        categories=None, presentation_qty='', presentation_unit='', visible=None):
+                        categories=None, presentation_qty='', presentation_unit='',
+                        visible=None, barcode=''):
         now = datetime.now().isoformat()
         with self._conn() as conn:
             if image:
                 conn.execute(
                     'UPDATE products SET name=?,description=?,price=?,image=?,updated_at=?,'
-                    'presentation_qty=?,presentation_unit=? WHERE id=?',
+                    'presentation_qty=?,presentation_unit=?,barcode=? WHERE id=?',
                     (name, description, float(price), image, now,
-                     presentation_qty, presentation_unit, product_id)
+                     presentation_qty, presentation_unit, barcode, product_id)
                 )
             else:
                 conn.execute(
                     'UPDATE products SET name=?,description=?,price=?,updated_at=?,'
-                    'presentation_qty=?,presentation_unit=? WHERE id=?',
+                    'presentation_qty=?,presentation_unit=?,barcode=? WHERE id=?',
                     (name, description, float(price), now,
-                     presentation_qty, presentation_unit, product_id)
+                     presentation_qty, presentation_unit, barcode, product_id)
                 )
             if visible is not None:
                 conn.execute('UPDATE products SET visible=? WHERE id=?', (int(bool(visible)), product_id))
