@@ -24,6 +24,12 @@
     const categoryCheckboxesEl = document.getElementById('category-checkboxes');
     const deleteBtn = document.getElementById('delete-btn');
 
+    const categoriesBtn = document.getElementById('categories-btn');
+    const categoriesModal = document.getElementById('categories-modal');
+    const categoryAddForm = document.getElementById('category-add-form');
+    const newCategoryNameInput = document.getElementById('new-category-name');
+    const categoryListEl = document.getElementById('category-list');
+
     const state = {
         query: '',
         categoryId: null,
@@ -62,10 +68,15 @@
         modal.hidden = true;
     }
 
+    const modalsByKey = {
+        pin: pinModal,
+        product: productModal,
+        categories: categoriesModal,
+    };
+
     document.querySelectorAll('[data-close]').forEach((el) => {
         el.addEventListener('click', () => {
-            const target = el.dataset.close === 'pin' ? pinModal : productModal;
-            closeModal(target);
+            closeModal(modalsByKey[el.dataset.close]);
         });
     });
 
@@ -102,6 +113,93 @@
             categoryCheckboxesEl.appendChild(label);
         }
     }
+
+    // ─────────────────── CATEGORY MANAGEMENT (admin) ───────────────────
+
+    async function reloadCategories() {
+        state.categories = await fetchJSON('/api/categories');
+        renderChips();
+    }
+
+    function renderCategoryList() {
+        categoryListEl.innerHTML = '';
+        for (const cat of state.categories) {
+            const li = document.createElement('li');
+            li.className = 'category-list__item';
+
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.value = cat.name;
+            nameInput.className = 'category-list__input';
+
+            const saveBtn = document.createElement('button');
+            saveBtn.type = 'button';
+            saveBtn.className = 'category-list__icon-btn';
+            saveBtn.textContent = '💾';
+            saveBtn.title = 'Guardar nombre';
+            saveBtn.addEventListener('click', async () => {
+                const newName = nameInput.value.trim();
+                if (!newName || newName === cat.name) return;
+                try {
+                    await fetchJSON(`/api/categories/${cat.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: newName, description: cat.description || '' }),
+                    });
+                    await reloadCategories();
+                    renderCategoryList();
+                    await loadProducts();
+                } catch (err) {
+                    alert(err.message || 'No se pudo renombrar la categoría');
+                }
+            });
+
+            const deleteCatBtn = document.createElement('button');
+            deleteCatBtn.type = 'button';
+            deleteCatBtn.className = 'category-list__icon-btn';
+            deleteCatBtn.textContent = '🗑️';
+            deleteCatBtn.title = 'Eliminar categoría';
+            deleteCatBtn.addEventListener('click', async () => {
+                if (!confirm(`¿Eliminar la categoría "${cat.name}"? Los productos no se borran, solo pierden esta categoría.`)) return;
+                try {
+                    await fetchJSON(`/api/categories/${cat.id}`, { method: 'DELETE' });
+                    await reloadCategories();
+                    renderCategoryList();
+                    await loadProducts();
+                } catch (err) {
+                    alert(err.message || 'No se pudo eliminar la categoría');
+                }
+            });
+
+            li.appendChild(nameInput);
+            li.appendChild(saveBtn);
+            li.appendChild(deleteCatBtn);
+            categoryListEl.appendChild(li);
+        }
+    }
+
+    categoriesBtn.addEventListener('click', () => {
+        renderCategoryList();
+        openModal(categoriesModal);
+    });
+
+    categoryAddForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = newCategoryNameInput.value.trim();
+        if (!name) return;
+        try {
+            await fetchJSON('/api/categories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description: '' }),
+            });
+            newCategoryNameInput.value = '';
+            await reloadCategories();
+            renderCategoryList();
+        } catch (err) {
+            alert(err.message || 'No se pudo agregar la categoría');
+        }
+    });
 
     // ─────────────────── PRODUCT LIST ───────────────────
 

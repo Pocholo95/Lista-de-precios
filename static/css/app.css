@@ -352,6 +352,39 @@ body.is-admin .card {
     font-size: 0.82rem;
 }
 
+/* ── CATEGORY LIST (admin) ── */
+.category-list {
+    list-style: none;
+    max-height: 50vh;
+    overflow-y: auto;
+    margin-bottom: 8px;
+}
+
+.category-list__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.category-list__input {
+    flex: 1 1 auto;
+    min-height: 40px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.9rem;
+}
+
+.category-list__icon-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.1rem;
+    min-width: 40px;
+    min-height: 40px;
+}
+
 /* ── BUTTONS ── */
 .btn {
     min-height: 44px;

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'catalogo-v1';
+const CACHE_VERSION = 'catalogo-v2';
 const APP_SHELL = [
     '/',
     '/static/css/app.css',
@@ -70,7 +70,16 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    if (url.pathname.startsWith('/static/images/') || APP_SHELL.includes(url.pathname)) {
+    // El shell de la app (HTML/CSS/JS) usa network-first: así el teléfono siempre ve
+    // los cambios más recientes cuando hay conexión, y solo cae a la caché sin internet.
+    if (APP_SHELL.includes(url.pathname)) {
+        event.respondWith(networkFirst(request));
+        return;
+    }
+
+    // Las fotos de producto casi nunca cambian una vez subidas, así que sí conviene
+    // cache-first: ahorra datos y son instantáneas en visitas repetidas.
+    if (url.pathname.startsWith('/static/images/')) {
         event.respondWith(cacheFirst(request));
         return;
     }
