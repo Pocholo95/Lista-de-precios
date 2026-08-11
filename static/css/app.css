@@ -21,6 +21,7 @@
 
 html {
     -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
 }
 
 body {
@@ -29,6 +30,8 @@ body {
     color: var(--text);
     overscroll-behavior-y: none;
     padding-bottom: calc(24px + var(--safe-bottom));
+    overflow-x: hidden;
+    max-width: 100vw;
 }
 
 /* ── HEADER ── */
@@ -502,6 +505,10 @@ body.is-admin .card {
     gap: 12px;
     padding: 10px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    /* Los elementos de un grid no se encogen por debajo del contenido más ancho
+       por default (min-width: auto) — sin esto, una sola tarjeta con texto largo
+       fuerza el ancho de TODA la columna, y por lo tanto de todas las tarjetas. */
+    min-width: 0;
 }
 
 .card__img {
