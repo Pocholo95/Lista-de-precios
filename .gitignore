@@ -5,3 +5,5 @@ venv/
 .venv/
 catalog.db-wal
 catalog.db-shm
+flask_out.log
+flask_err.log
