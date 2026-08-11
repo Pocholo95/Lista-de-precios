@@ -49,6 +49,22 @@ body {
     color: #fff;
     font-size: 1.15rem;
     font-weight: 700;
+    flex: 1 1 auto;
+}
+
+.header__admin-btn {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    color: #fff;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    flex: 0 0 auto;
+}
+
+body.is-admin .header__admin-btn {
+    background: rgba(255, 255, 255, 0.35);
 }
 
 /* ── SEARCH ── */
@@ -107,6 +123,264 @@ body {
     background: var(--primary);
     color: #fff;
     border-color: var(--primary);
+}
+
+/* ── ADMIN BAR ── */
+.admin-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #fff3cd;
+    border-bottom: 1px solid #f1d98b;
+}
+
+.admin-bar[hidden] {
+    display: none;
+}
+
+.admin-bar__label {
+    flex: 1 1 auto;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #7a5c00;
+}
+
+.admin-bar__btn {
+    border: 1px solid #d8b64a;
+    background: #fff;
+    color: #7a5c00;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    min-height: 36px;
+}
+
+/* ── CARD (admin extras) ── */
+body.is-admin .card {
+    position: relative;
+}
+
+.card--hidden-product {
+    opacity: 0.5;
+}
+
+.card__hidden-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #b45309;
+    margin-top: 2px;
+}
+
+/* ── FAB ── */
+.fab {
+    position: fixed;
+    right: 20px;
+    bottom: calc(20px + var(--safe-bottom));
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-size: 1.8rem;
+    font-weight: 400;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    z-index: 25;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.fab[hidden] {
+    display: none;
+}
+
+/* ── MODAL ── */
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: flex-end;
+}
+
+.modal[hidden] {
+    display: none;
+}
+
+.modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.modal__sheet {
+    position: relative;
+    background: var(--surface);
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 18px 18px 0 0;
+    padding: 20px 20px calc(20px + var(--safe-bottom));
+}
+
+@media (min-width: 560px) {
+    .modal {
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal__sheet {
+        width: 480px;
+        border-radius: var(--radius);
+        max-height: 85vh;
+    }
+}
+
+.modal__sheet--small {
+    max-width: 320px;
+    margin: 0 auto;
+}
+
+.modal__title {
+    font-size: 1.1rem;
+    margin-bottom: 16px;
+}
+
+.modal__pin-input {
+    width: 100%;
+    height: 48px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0 16px;
+    font-size: 1.4rem;
+    letter-spacing: 0.3em;
+    text-align: center;
+}
+
+.modal__error {
+    color: #d64545;
+    font-size: 0.85rem;
+    margin-top: 8px;
+    text-align: center;
+}
+
+.modal__error[hidden] {
+    display: none;
+}
+
+.modal__actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.modal__actions--space-between {
+    justify-content: space-between;
+}
+
+/* ── FORM FIELDS ── */
+.field {
+    display: block;
+    margin-bottom: 14px;
+}
+
+.field__label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.field input[type="text"],
+.field input[type="number"],
+.field input[type="file"],
+.field textarea {
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 1rem;
+    font-family: inherit;
+}
+
+.field-row {
+    display: flex;
+    gap: 10px;
+}
+
+.field-row .field {
+    flex: 1 1 0;
+}
+
+.field--switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.field--switch .field__label {
+    margin-bottom: 0;
+}
+
+.field--switch input {
+    width: 22px;
+    height: 22px;
+}
+
+.category-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.category-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+}
+
+/* ── BUTTONS ── */
+.btn {
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border: none;
+}
+
+.btn--primary {
+    background: var(--primary);
+    color: #fff;
+}
+
+.btn--ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+}
+
+.btn--danger {
+    background: #fdeeee;
+    color: #c0392b;
+    border: 1px solid #f3caca;
+}
+
+.btn--danger[hidden] {
+    display: none;
 }
 
 /* ── PRODUCT GRID ── */

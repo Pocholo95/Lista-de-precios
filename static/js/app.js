@@ -7,10 +7,28 @@
     const emptyEl = document.getElementById('empty-state');
     const loadingEl = document.getElementById('loading-state');
 
+    const adminToggleBtn = document.getElementById('admin-toggle-btn');
+    const adminBar = document.getElementById('admin-bar');
+    const backupBtn = document.getElementById('backup-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const addFab = document.getElementById('add-fab');
+
+    const pinModal = document.getElementById('pin-modal');
+    const pinForm = document.getElementById('pin-form');
+    const pinInput = document.getElementById('pin-input');
+    const pinError = document.getElementById('pin-error');
+
+    const productModal = document.getElementById('product-modal');
+    const productForm = document.getElementById('product-form');
+    const productModalTitle = document.getElementById('product-modal-title');
+    const categoryCheckboxesEl = document.getElementById('category-checkboxes');
+    const deleteBtn = document.getElementById('delete-btn');
+
     const state = {
         query: '',
         categoryId: null,
         categories: [],
+        isAdmin: false,
     };
 
     const priceFormatter = new Intl.NumberFormat('es-MX', {
@@ -27,11 +45,31 @@
         };
     }
 
-    async function fetchJSON(url) {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`Error ${res.status}`);
+    async function fetchJSON(url, options) {
+        const res = await fetch(url, options);
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body.error || `Error ${res.status}`);
+        }
         return res.json();
     }
+
+    function openModal(modal) {
+        modal.hidden = false;
+    }
+
+    function closeModal(modal) {
+        modal.hidden = true;
+    }
+
+    document.querySelectorAll('[data-close]').forEach((el) => {
+        el.addEventListener('click', () => {
+            const target = el.dataset.close === 'pin' ? pinModal : productModal;
+            closeModal(target);
+        });
+    });
+
+    // ─────────────────── CATEGORY CHIPS ───────────────────
 
     function renderChips() {
         const all = [{ id: null, name: 'Todas' }, ...state.categories];
@@ -50,9 +88,29 @@
         }
     }
 
+    function renderCategoryCheckboxes(selectedIds) {
+        categoryCheckboxesEl.innerHTML = '';
+        for (const cat of state.categories) {
+            const label = document.createElement('label');
+            label.className = 'category-checkbox';
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.value = cat.id;
+            input.checked = selectedIds.includes(cat.id);
+            label.appendChild(input);
+            label.appendChild(document.createTextNode(cat.name));
+            categoryCheckboxesEl.appendChild(label);
+        }
+    }
+
+    // ─────────────────── PRODUCT LIST ───────────────────
+
     function productCard(product) {
         const card = document.createElement('article');
-        card.className = 'card';
+        card.className = 'card' + (state.isAdmin && !product.visible ? ' card--hidden-product' : '');
+        if (state.isAdmin) {
+            card.addEventListener('click', () => openProductForm(product));
+        }
 
         const img = document.createElement('img');
         img.className = 'card__img';
@@ -74,6 +132,13 @@
             meta.className = 'card__meta';
             meta.textContent = `${product.presentation_qty} ${product.presentation_unit}`.trim();
             body.appendChild(meta);
+        }
+
+        if (state.isAdmin && !product.visible) {
+            const badge = document.createElement('div');
+            badge.className = 'card__hidden-badge';
+            badge.textContent = 'Oculto para clientes';
+            body.appendChild(badge);
         }
 
         card.appendChild(body);
@@ -117,6 +182,141 @@
         }
     }
 
+    // ─────────────────── ADMIN MODE ───────────────────
+
+    function applyAdminUI() {
+        document.body.classList.toggle('is-admin', state.isAdmin);
+        adminBar.hidden = !state.isAdmin;
+        addFab.hidden = !state.isAdmin;
+        adminToggleBtn.textContent = state.isAdmin ? '🔓' : '🔒';
+    }
+
+    async function refreshAdminStatus() {
+        try {
+            const status = await fetchJSON('/api/admin/status');
+            state.isAdmin = !!status.is_admin;
+        } catch (err) {
+            state.isAdmin = false;
+        }
+        applyAdminUI();
+    }
+
+    adminToggleBtn.addEventListener('click', () => {
+        if (state.isAdmin) {
+            applyAdminUI();
+        } else {
+            pinInput.value = '';
+            pinError.hidden = true;
+            openModal(pinModal);
+            pinInput.focus();
+        }
+    });
+
+    pinForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            await fetchJSON('/api/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: pinInput.value }),
+            });
+            state.isAdmin = true;
+            applyAdminUI();
+            closeModal(pinModal);
+            await loadProducts();
+        } catch (err) {
+            pinError.hidden = false;
+        }
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+        await fetchJSON('/api/admin/logout', { method: 'POST' });
+        state.isAdmin = false;
+        applyAdminUI();
+        await loadProducts();
+    });
+
+    backupBtn.addEventListener('click', () => {
+        window.location.href = '/api/admin/backup';
+    });
+
+    // ─────────────────── PRODUCT FORM ───────────────────
+
+    function resetProductForm() {
+        productForm.reset();
+        document.getElementById('product-id').value = '';
+        document.getElementById('field-visible').checked = true;
+        deleteBtn.hidden = true;
+        renderCategoryCheckboxes([]);
+    }
+
+    function openProductForm(product) {
+        resetProductForm();
+        if (product) {
+            productModalTitle.textContent = 'Editar producto';
+            document.getElementById('product-id').value = product.id;
+            document.getElementById('field-name').value = product.name;
+            document.getElementById('field-price').value = product.price;
+            document.getElementById('field-qty').value = product.presentation_qty || '';
+            document.getElementById('field-unit').value = product.presentation_unit || '';
+            document.getElementById('field-description').value = product.description || '';
+            document.getElementById('field-visible').checked = product.visible !== false;
+            renderCategoryCheckboxes(product.categories || []);
+            deleteBtn.hidden = false;
+            deleteBtn.onclick = () => deleteProduct(product.id);
+        } else {
+            productModalTitle.textContent = 'Agregar producto';
+        }
+        openModal(productModal);
+    }
+
+    addFab.addEventListener('click', () => openProductForm(null));
+
+    productForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('product-id').value;
+        const formData = new FormData();
+        formData.set('name', document.getElementById('field-name').value.trim());
+        formData.set('price', document.getElementById('field-price').value || '0');
+        formData.set('presentation_qty', document.getElementById('field-qty').value.trim());
+        formData.set('presentation_unit', document.getElementById('field-unit').value.trim());
+        formData.set('description', document.getElementById('field-description').value.trim());
+        formData.set('visible', document.getElementById('field-visible').checked ? '1' : '0');
+
+        const selectedCats = Array.from(
+            categoryCheckboxesEl.querySelectorAll('input:checked')
+        ).map((el) => el.value);
+        for (const catId of selectedCats) formData.append('categories', catId);
+
+        const fileInput = document.getElementById('field-image');
+        if (fileInput.files[0]) formData.set('image', fileInput.files[0]);
+
+        try {
+            if (id) {
+                await fetchJSON(`/api/products/${id}`, { method: 'PUT', body: formData });
+            } else {
+                await fetchJSON('/api/products', { method: 'POST', body: formData });
+            }
+            closeModal(productModal);
+            await loadProducts();
+        } catch (err) {
+            alert(err.message || 'No se pudo guardar el producto');
+        }
+    });
+
+    async function deleteProduct(id) {
+        if (!confirm('¿Eliminar este producto? Esta acción no se puede deshacer.')) return;
+        try {
+            await fetchJSON(`/api/products/${id}`, { method: 'DELETE' });
+            closeModal(productModal);
+            await loadProducts();
+        } catch (err) {
+            alert(err.message || 'No se pudo eliminar el producto');
+        }
+    }
+
+    // ─────────────────── INIT ───────────────────
+
     async function init() {
         try {
             state.categories = await fetchJSON('/api/categories');
@@ -124,6 +324,7 @@
             console.error('No se pudieron cargar las categorías', err);
         }
         renderChips();
+        await refreshAdminStatus();
 
         searchInput.addEventListener('input', debounce((e) => {
             state.query = e.target.value.trim();
