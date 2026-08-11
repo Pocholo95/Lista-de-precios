@@ -1,7 +1,23 @@
+import io
 import os
+
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+from rembg import remove, new_session
 
 MAX_SIZE = 500
+
+# u2netp es la versión liviana del modelo de rembg (~4.5MB vs ~176MB de u2net normal):
+# bastante más rápida y ligera de correr en una laptop común, con menos precisión en
+# casos difíciles pero de sobra para fotos de producto con fondo simple.
+_session = None
+
+
+def _get_session():
+    global _session
+    if _session is None:
+        _session = new_session('u2netp')
+    return _session
 
 
 class ImageProcessor:
@@ -9,20 +25,18 @@ class ImageProcessor:
         self.upload_folder = upload_folder
         os.makedirs(upload_folder, exist_ok=True)
 
-    def process_image(self, image_path):
-        """Recorta al cuadrado centrado, redimensiona y convierte a WebP. Sin IA: rápido y liviano."""
+    def process_image(self, image_path, remove_bg=True):
+        """Quita el fondo (IA liviana), recorta al contenido, centra en cuadrado y
+        convierte a WebP. Si remove_bg=False, solo recorta al cuadrado y comprime."""
         try:
-            img = Image.open(image_path)
-            img = img.convert('RGB')
+            if remove_bg:
+                img = self._remove_background(image_path)
+            else:
+                img = Image.open(image_path).convert('RGB')
+                img = self._crop_to_square(img)
 
-            w, h = img.size
-            side = min(w, h)
-            left = (w - side) // 2
-            top = (h - side) // 2
-            img = img.crop((left, top, left + side, top + side))
-
-            if side > MAX_SIZE:
-                img = img.resize((MAX_SIZE, MAX_SIZE), Image.Resampling.LANCZOS)
+            if max(img.size) > MAX_SIZE:
+                img.thumbnail((MAX_SIZE, MAX_SIZE), Image.Resampling.LANCZOS)
 
             webp_path = image_path.rsplit('.', 1)[0] + '.webp'
             img.save(webp_path, 'WebP', quality=85, method=6)
@@ -35,6 +49,39 @@ class ImageProcessor:
         except Exception as e:
             print(f'Error procesando imagen: {e}')
             return 'placeholder.webp'
+
+    def _remove_background(self, image_path):
+        with open(image_path, 'rb') as f:
+            input_bytes = f.read()
+        output_bytes = remove(input_bytes, session=_get_session())
+        img = Image.open(io.BytesIO(output_bytes)).convert('RGBA')
+
+        arr = np.array(img)
+        alpha = arr[:, :, 3]
+        coords = np.argwhere(alpha > 10)
+        if coords.size == 0:
+            return img
+
+        y_min, x_min = coords.min(axis=0)
+        y_max, x_max = coords.max(axis=0)
+        cropped = arr[y_min:y_max + 1, x_min:x_max + 1]
+
+        # Un poco de margen alrededor del producto para que no quede pegado al borde
+        h, w = cropped.shape[:2]
+        side = int(max(h, w) * 1.15)
+        canvas = np.zeros((side, side, 4), dtype=np.uint8)
+        y_off = (side - h) // 2
+        x_off = (side - w) // 2
+        canvas[y_off:y_off + h, x_off:x_off + w] = cropped
+
+        return Image.fromarray(canvas, 'RGBA')
+
+    def _crop_to_square(self, img):
+        w, h = img.size
+        side = min(w, h)
+        left = (w - side) // 2
+        top = (h - side) // 2
+        return img.crop((left, top, left + side, top + side))
 
     def create_placeholder(self):
         """Crear imagen placeholder si no existe."""

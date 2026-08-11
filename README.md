@@ -44,4 +44,7 @@ que se puede restaurar copiándolo sobre `catalog.db` si algo llegara a pasar.
   pérdida de datos si se va la luz a medio guardar.
 - El respaldo usa la Online Backup API de SQLite (no una copia cruda del archivo), así
   que siempre genera un `.db` consistente aunque haya escrituras en curso.
-- Sin dependencias de IA para las fotos: solo recorte a cuadrado + compresión WebP.
+- Fotos: se quita el fondo automáticamente con `rembg` usando el modelo liviano
+  `u2netp` (~4.5MB, se descarga solo la primera vez que se sube una foto — necesita
+  internet esa primera vez). Sin `opencv`, así que la instalación es mucho más
+  liviana que el prototipo original. Cada foto tarda unos 2-4 segundos en procesarse.
