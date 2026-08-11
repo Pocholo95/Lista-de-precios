@@ -214,11 +214,18 @@
         return (name || '').trim().toLowerCase();
     }
 
+    function normalizePresentation(value) {
+        return (value || '').trim().toLowerCase();
+    }
+
     function findDuplicates(products) {
         const byName = new Map();
         const byBarcode = new Map();
         for (const p of products) {
-            const nameKey = normalizeName(p.name);
+            // Nombre + cantidad + unidad juntos: "Manzana 1 L" y "Manzana 500 ml"
+            // son presentaciones distintas, no duplicados, aunque compartan nombre.
+            const nameKey = normalizeName(p.name)
+                && `${normalizeName(p.name)}|${normalizePresentation(p.presentation_qty)}|${normalizePresentation(p.presentation_unit)}`;
             if (nameKey) {
                 if (!byName.has(nameKey)) byName.set(nameKey, []);
                 byName.get(nameKey).push(p);
