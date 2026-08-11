@@ -1,7 +1,5 @@
 import sqlite3
-import json
 import uuid
-import os
 from datetime import datetime
 
 
@@ -12,13 +10,15 @@ class ProductDatabase:
     def __init__(self, db_path=DB_PATH):
         self.db_path = db_path
         self._init_db()
-        self._migrate_from_json()
+        self._migrate_schema()
 
     def _conn(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=5)
         conn.row_factory = sqlite3.Row
         conn.execute('PRAGMA foreign_keys = ON')
-        conn.execute('PRAGMA journal_mode = WAL')  # mejor rendimiento concurrente
+        conn.execute('PRAGMA journal_mode = WAL')       # lectores no bloquean escritores
+        conn.execute('PRAGMA synchronous = FULL')        # fsync en cada commit: protege contra apagones
+        conn.execute('PRAGMA busy_timeout = 5000')        # espera en vez de fallar si hay contención
         return conn
 
     def _init_db(self):
@@ -40,7 +40,8 @@ class ProductDatabase:
                     created_at          TEXT NOT NULL,
                     updated_at          TEXT,
                     presentation_qty    TEXT DEFAULT '',
-                    presentation_unit   TEXT DEFAULT ''
+                    presentation_unit   TEXT DEFAULT '',
+                    visible             INTEGER NOT NULL DEFAULT 1
                 );
 
                 CREATE TABLE IF NOT EXISTS product_categories (
@@ -50,64 +51,23 @@ class ProductDatabase:
                     FOREIGN KEY (product_id)  REFERENCES products(id)   ON DELETE CASCADE,
                     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
                 );
+
+                CREATE INDEX IF NOT EXISTS idx_pc_product  ON product_categories(product_id);
+                CREATE INDEX IF NOT EXISTS idx_pc_category ON product_categories(category_id);
             ''')
 
-    def _migrate_from_json(self):
-        """Importa datos de los JSON viejos si la BD está vacía."""
-        # Migración de esquema: agregar columnas de presentación a BD existente
+    def _migrate_schema(self):
+        """Migración aditiva: agrega columnas nuevas a una BD existente sin tocar los datos."""
         with self._conn() as conn:
-            for col, default in [('presentation_qty', ''), ('presentation_unit', '')]:
-                try:
-                    conn.execute(f"ALTER TABLE products ADD COLUMN {col} TEXT DEFAULT '{default}'")
-                except Exception:
-                    pass  # La columna ya existe, ignorar
-
-        with self._conn() as conn:
-            if conn.execute('SELECT COUNT(*) FROM products').fetchone()[0] > 0:
-                return  # Ya tiene datos, no migrar
-
-        # Buscar archivos JSON en varias rutas posibles
-        cat_paths  = ['categories.json', 'data/categories.json']
-        prod_paths = ['products.json',   'data/products.json']
-
-        for path in cat_paths:
-            if os.path.exists(path):
-                try:
-                    with open(path, encoding='utf-8') as f:
-                        cats = json.load(f)
-                    with self._conn() as conn:
-                        for c in cats:
-                            conn.execute(
-                                'INSERT OR IGNORE INTO categories VALUES (?,?,?,?)',
-                                (c['id'], c['name'], c.get('description', ''), c['created_at'])
-                            )
-                    print(f'✅ Migradas {len(cats)} categorías desde {path}')
-                except Exception as e:
-                    print(f'⚠️  No se pudieron migrar categorías: {e}')
-                break
-
-        for path in prod_paths:
-            if os.path.exists(path):
-                try:
-                    with open(path, encoding='utf-8') as f:
-                        prods = json.load(f)
-                    with self._conn() as conn:
-                        for p in prods:
-                            conn.execute(
-                                'INSERT OR IGNORE INTO products VALUES (?,?,?,?,?,?,?)',
-                                (p['id'], p['name'], p.get('description', ''),
-                                 p.get('price', 0.0), p.get('image', 'placeholder.webp'),
-                                 p['created_at'], p.get('updated_at'))
-                            )
-                            for cat_id in p.get('categories', []):
-                                conn.execute(
-                                    'INSERT OR IGNORE INTO product_categories VALUES (?,?)',
-                                    (p['id'], cat_id)
-                                )
-                    print(f'✅ Migrados {len(prods)} productos desde {path}')
-                except Exception as e:
-                    print(f'⚠️  No se pudieron migrar productos: {e}')
-                break
+            existing_cols = {row['name'] for row in conn.execute('PRAGMA table_info(products)')}
+            for col, ddl_default in [
+                ('presentation_qty', "TEXT DEFAULT ''"),
+                ('presentation_unit', "TEXT DEFAULT ''"),
+                ('visible', 'INTEGER NOT NULL DEFAULT 1'),
+            ]:
+                if col not in existing_cols:
+                    conn.execute(f'ALTER TABLE products ADD COLUMN {col} {ddl_default}')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_products_visible ON products(visible)')
 
     # ─────────────────── HELPERS ───────────────────
 
@@ -115,6 +75,7 @@ class ProductDatabase:
         if not row:
             return None
         d = dict(row)
+        d['visible'] = bool(d['visible'])
         cats = conn.execute(
             'SELECT category_id FROM product_categories WHERE product_id = ?', (d['id'],)
         ).fetchall()
@@ -123,10 +84,11 @@ class ProductDatabase:
 
     # ─────────────────── PRODUCTS ───────────────────
 
-    def get_products(self, sort_by_date=True):
+    def get_products(self, sort_by_date=True, only_visible=False):
         order = 'ORDER BY created_at DESC' if sort_by_date else 'ORDER BY name'
+        where = 'WHERE visible = 1' if only_visible else ''
         with self._conn() as conn:
-            rows = conn.execute(f'SELECT * FROM products {order}').fetchall()
+            rows = conn.execute(f'SELECT * FROM products {where} {order}').fetchall()
             return [self._with_categories(r, conn) for r in rows]
 
     def get_product_by_id(self, product_id):
@@ -134,44 +96,45 @@ class ProductDatabase:
             row = conn.execute('SELECT * FROM products WHERE id = ?', (product_id,)).fetchone()
             return self._with_categories(row, conn)
 
-    def search_products(self, query, category_id=None):
+    def search_products(self, query, category_id=None, only_visible=False):
         q = f'%{query}%'
+        visible_clause = 'AND p.visible = 1' if only_visible else ''
         with self._conn() as conn:
             if category_id:
-                rows = conn.execute('''
+                rows = conn.execute(f'''
                     SELECT p.* FROM products p
                     JOIN product_categories pc ON p.id = pc.product_id
                     WHERE pc.category_id = ?
                       AND (p.name LIKE ? OR p.description LIKE ?)
+                      {visible_clause}
                     ORDER BY p.created_at DESC
                 ''', (category_id, q, q)).fetchall()
             else:
-                rows = conn.execute(
-                    'SELECT * FROM products WHERE name LIKE ? OR description LIKE ? ORDER BY created_at DESC',
-                    (q, q)
-                ).fetchall()
+                rows = conn.execute(f'''
+                    SELECT p.* FROM products p
+                    WHERE (p.name LIKE ? OR p.description LIKE ?)
+                    {visible_clause}
+                    ORDER BY p.created_at DESC
+                ''', (q, q)).fetchall()
             return [self._with_categories(r, conn) for r in rows]
 
-    def load_products(self):
-        """Alias para compatibilidad."""
-        return self.get_products()
-
     def add_product(self, name, description, price, image, categories,
-                    presentation_qty='', presentation_unit=''):
+                     presentation_qty='', presentation_unit='', visible=True):
         pid = str(uuid.uuid4())
         now = datetime.now().isoformat()
         with self._conn() as conn:
             conn.execute(
-                'INSERT INTO products VALUES (?,?,?,?,?,?,?,?,?)',
+                'INSERT INTO products (id, name, description, price, image, created_at, '
+                'updated_at, presentation_qty, presentation_unit, visible) VALUES (?,?,?,?,?,?,?,?,?,?)',
                 (pid, name, description, float(price), image, now, now,
-                 presentation_qty, presentation_unit)
+                 presentation_qty, presentation_unit, int(bool(visible)))
             )
             for cat_id in categories:
                 conn.execute('INSERT OR IGNORE INTO product_categories VALUES (?,?)', (pid, cat_id))
         return self.get_product_by_id(pid)
 
     def update_product(self, product_id, name, description, price, image=None,
-                       categories=None, presentation_qty='', presentation_unit=''):
+                        categories=None, presentation_qty='', presentation_unit='', visible=None):
         now = datetime.now().isoformat()
         with self._conn() as conn:
             if image:
@@ -188,11 +151,18 @@ class ProductDatabase:
                     (name, description, float(price), now,
                      presentation_qty, presentation_unit, product_id)
                 )
+            if visible is not None:
+                conn.execute('UPDATE products SET visible=? WHERE id=?', (int(bool(visible)), product_id))
             if categories is not None:
                 conn.execute('DELETE FROM product_categories WHERE product_id = ?', (product_id,))
                 for cat_id in categories:
                     conn.execute('INSERT OR IGNORE INTO product_categories VALUES (?,?)', (product_id, cat_id))
         return self.get_product_by_id(product_id)
+
+    def set_product_visibility(self, product_id, visible):
+        with self._conn() as conn:
+            r = conn.execute('UPDATE products SET visible=? WHERE id=?', (int(bool(visible)), product_id))
+            return r.rowcount > 0
 
     def delete_product(self, product_id):
         with self._conn() as conn:
@@ -200,12 +170,13 @@ class ProductDatabase:
             conn.execute('DELETE FROM products WHERE id = ?', (product_id,))
         return True
 
-    def get_products_by_category(self, category_id):
+    def get_products_by_category(self, category_id, only_visible=False):
+        visible_clause = 'AND p.visible = 1' if only_visible else ''
         with self._conn() as conn:
-            rows = conn.execute('''
+            rows = conn.execute(f'''
                 SELECT p.* FROM products p
                 JOIN product_categories pc ON p.id = pc.product_id
-                WHERE pc.category_id = ?
+                WHERE pc.category_id = ? {visible_clause}
                 ORDER BY p.created_at DESC
             ''', (category_id,)).fetchall()
             return [self._with_categories(r, conn) for r in rows]
