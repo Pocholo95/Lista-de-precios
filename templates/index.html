@@ -59,7 +59,7 @@
             <h2 class="modal__title">Acceso de administrador</h2>
             <form id="pin-form">
                 <input id="pin-input" class="modal__pin-input" type="password" inputmode="numeric"
-                       autocomplete="off" placeholder="PIN" maxlength="12">
+                       pattern="[0-9]*" autocomplete="off" placeholder="PIN" maxlength="12">
                 <p id="pin-error" class="modal__error" hidden>PIN incorrecto</p>
                 <div class="modal__actions">
                     <button type="button" class="btn btn--ghost" data-close="pin">Cancelar</button>
