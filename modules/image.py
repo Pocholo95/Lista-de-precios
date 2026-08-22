@@ -102,6 +102,25 @@ class ImageProcessor:
                 pass
             img.save(placeholder_path, 'WebP', quality=90)
 
+    def rotate_image(self, image_filename, degrees=-90):
+        """Rota la imagen ya guardada (por defecto 90° en sentido horario) y la
+        reescribe en el mismo archivo, sin cambiar su nombre."""
+        if not image_filename or image_filename == 'placeholder.webp':
+            return False
+        path = os.path.join(self.upload_folder, image_filename)
+        if not os.path.exists(path):
+            return False
+        try:
+            img = Image.open(path)
+            has_alpha = img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info)
+            img = img.convert('RGBA') if has_alpha else img.convert('RGB')
+            rotated = img.rotate(degrees, expand=True)
+            rotated.save(path, 'WebP', quality=85, method=6)
+            return True
+        except Exception as e:
+            print(f'Error rotando imagen {image_filename}: {e}')
+            return False
+
     def delete_image(self, image_filename):
         """Eliminar imagen del sistema de archivos."""
         if image_filename and image_filename != 'placeholder.webp':

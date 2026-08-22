@@ -211,6 +211,23 @@ def update_product(product_id):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/products/<product_id>/rotate', methods=['POST'])
+@admin_required
+def rotate_product_image(product_id):
+    try:
+        product = db.get_product_by_id(product_id)
+        if not product:
+            return jsonify({'error': 'Producto no encontrado'}), 404
+
+        if not image_processor.rotate_image(product['image']):
+            return jsonify({'error': 'No se pudo rotar la imagen'}), 400
+
+        return jsonify({'image': product['image']})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/products/<product_id>', methods=['DELETE'])
 @admin_required
 def delete_product(product_id):

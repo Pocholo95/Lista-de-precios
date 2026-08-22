@@ -172,6 +172,27 @@
         </nav>
     </div>
 
+    <!-- Quick view modal (tap en tile) -->
+    <div id="quickview-modal" class="modal" hidden>
+        <div class="modal__backdrop" data-close="quickview"></div>
+        <div class="modal__sheet modal__sheet--quickview">
+            <button class="quickview__close" type="button" data-close="quickview" aria-label="Cerrar">✕</button>
+            <div class="quickview__img-wrap">
+                <img id="quickview-img" class="quickview__img" alt="">
+            </div>
+            <div class="quickview__body">
+                <h2 id="quickview-name" class="quickview__name"></h2>
+                <p id="quickview-meta" class="quickview__meta" hidden></p>
+                <p id="quickview-price" class="quickview__price"></p>
+                <p id="quickview-description" class="quickview__description" hidden></p>
+            </div>
+            <div id="quickview-admin-actions" class="quickview__admin-actions" hidden>
+                <button id="quickview-rotate-btn" type="button" class="btn btn--ghost">🔄 Rotar imagen</button>
+                <button id="quickview-edit-btn" type="button" class="btn btn--primary">✏️ Editar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Barcode scanner modal -->
     <div id="scan-modal" class="modal" hidden>
         <div class="scan-modal__content">

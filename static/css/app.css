@@ -239,22 +239,6 @@ body.is-admin .header__admin-btn {
     min-height: 36px;
 }
 
-/* ── CARD (admin extras) ── */
-body.is-admin .card {
-    position: relative;
-}
-
-.card--hidden-product {
-    opacity: 0.5;
-}
-
-.card__hidden-badge {
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: #b45309;
-    margin-top: 2px;
-}
-
 /* ── FAB ── */
 .fab {
     position: fixed;
@@ -551,79 +535,203 @@ body.is-admin .card {
     display: none;
 }
 
-/* ── PRODUCT GRID ── */
+/* ── PRODUCT GRID (tiles estilo Amazon/MercadoLibre) ── */
 .grid {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-    padding: 4px 16px 16px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    padding: 4px 12px 16px;
 }
 
 @media (min-width: 480px) {
     .grid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(3, 1fr);
     }
 }
 
 @media (min-width: 820px) {
     .grid {
-        grid-template-columns: repeat(3, 1fr);
-        max-width: 960px;
+        grid-template-columns: repeat(4, 1fr);
+        max-width: 1100px;
         margin: 0 auto;
         width: 100%;
     }
 }
 
-.card {
-    background: var(--surface);
-    border-radius: var(--radius);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-    /* Los elementos de un grid no se encogen por debajo del contenido más ancho
-       por default (min-width: auto) — sin esto, una sola tarjeta con texto largo
-       fuerza el ancho de TODA la columna, y por lo tanto de todas las tarjetas. */
-    min-width: 0;
+@media (min-width: 1100px) {
+    .grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
 }
 
-.card__img {
-    width: 64px;
-    height: 64px;
-    border-radius: 10px;
-    object-fit: cover;
+.tile {
+    position: relative;
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    text-align: left;
+    border: none;
+    min-width: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.tile__img-wrap {
+    width: 100%;
+    aspect-ratio: 1 / 1;
     background: #f0f0f5;
+    overflow: hidden;
     flex: 0 0 auto;
 }
 
-.card__body {
-    flex: 1 1 auto;
-    min-width: 0;
+.tile__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
-.card__name {
-    font-size: 0.95rem;
-    font-weight: 600;
-    line-height: 1.25;
+.tile__body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px 12px;
+    flex: 1 1 auto;
+}
+
+.tile__name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--text);
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     overflow: hidden;
 }
 
-.card__meta {
-    font-size: 0.78rem;
+.tile__meta {
+    font-size: 0.72rem;
     color: var(--text-muted);
-    margin-top: 2px;
 }
 
-.card__price {
-    font-size: 1.2rem;
+.tile__price {
+    font-size: 1.05rem;
     font-weight: 800;
     color: var(--primary-dark);
-    flex: 0 0 auto;
-    white-space: nowrap;
+    margin-top: auto;
+    padding-top: 2px;
+}
+
+.tile--hidden-product {
+    opacity: 0.5;
+}
+
+.tile__hidden-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #b45309;
+}
+
+.tile__edit-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ── QUICK VIEW (ventana flotante al hacer tap en un tile) ── */
+.modal__sheet--quickview {
+    padding: 0;
+    max-width: 480px;
+}
+
+.quickview__close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.quickview__img-wrap {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: #f0f0f5;
+}
+
+.quickview__img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.quickview__body {
+    padding: 16px 20px 4px;
+}
+
+.quickview__name {
+    font-size: 1.15rem;
+    margin-bottom: 6px;
+}
+
+.quickview__meta {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.quickview__meta[hidden] {
+    display: none;
+}
+
+.quickview__price {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+    margin-bottom: 10px;
+}
+
+.quickview__description {
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: var(--text);
+}
+
+.quickview__description[hidden] {
+    display: none;
+}
+
+.quickview__admin-actions {
+    display: flex;
+    gap: 10px;
+    padding: 16px 20px calc(20px + var(--safe-bottom));
+}
+
+.quickview__admin-actions[hidden] {
+    display: none;
 }
 
 /* ── SCAN MODAL ── */

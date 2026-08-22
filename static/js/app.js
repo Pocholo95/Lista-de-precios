@@ -29,6 +29,16 @@
     const newCategoryNameInput = document.getElementById('new-category-name');
     const categoryListEl = document.getElementById('category-list');
 
+    const quickviewModal = document.getElementById('quickview-modal');
+    const quickviewImg = document.getElementById('quickview-img');
+    const quickviewName = document.getElementById('quickview-name');
+    const quickviewMeta = document.getElementById('quickview-meta');
+    const quickviewPrice = document.getElementById('quickview-price');
+    const quickviewDescription = document.getElementById('quickview-description');
+    const quickviewAdminActions = document.getElementById('quickview-admin-actions');
+    const quickviewRotateBtn = document.getElementById('quickview-rotate-btn');
+    const quickviewEditBtn = document.getElementById('quickview-edit-btn');
+
     const scanBtn = document.getElementById('scan-btn');
     const scanModal = document.getElementById('scan-modal');
     const scanVideo = document.getElementById('scan-video');
@@ -51,6 +61,7 @@
         categories: [],
         isAdmin: false,
         specialFilter: null,
+        imageVersions: {},
     };
 
     const priceFormatter = new Intl.NumberFormat('es-MX', {
@@ -89,7 +100,13 @@
         product: productModal,
         categories: categoriesModal,
         'category-drawer': categoryDrawerModal,
+        quickview: quickviewModal,
     };
+
+    function imageUrl(product) {
+        const version = state.imageVersions[product.id];
+        return version ? `/static/images/${product.image}?v=${version}` : `/static/images/${product.image}`;
+    }
 
     document.querySelectorAll('[data-close]').forEach((el) => {
         el.addEventListener('click', () => {
@@ -403,49 +420,107 @@
 
     function productCard(product) {
         const card = document.createElement('article');
-        card.className = 'card' + (state.isAdmin && !product.visible ? ' card--hidden-product' : '');
+        card.className = 'tile' + (state.isAdmin && !product.visible ? ' tile--hidden-product' : '');
+        card.addEventListener('click', () => openQuickView(product));
+
+        const imgWrap = document.createElement('div');
+        imgWrap.className = 'tile__img-wrap';
+        const img = document.createElement('img');
+        img.className = 'tile__img';
+        img.loading = 'lazy';
+        img.src = imageUrl(product);
+        img.alt = product.name;
+        imgWrap.appendChild(img);
+        card.appendChild(imgWrap);
+
         if (state.isAdmin) {
-            card.addEventListener('click', () => openProductForm(product));
+            const editBtn = document.createElement('button');
+            editBtn.type = 'button';
+            editBtn.className = 'tile__edit-btn';
+            editBtn.textContent = '✏️';
+            editBtn.setAttribute('aria-label', 'Editar producto');
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openProductForm(product);
+            });
+            card.appendChild(editBtn);
         }
 
-        const img = document.createElement('img');
-        img.className = 'card__img';
-        img.loading = 'lazy';
-        img.src = `/static/images/${product.image}`;
-        img.alt = product.name;
-        card.appendChild(img);
-
         const body = document.createElement('div');
-        body.className = 'card__body';
+        body.className = 'tile__body';
 
         const name = document.createElement('div');
-        name.className = 'card__name';
+        name.className = 'tile__name';
         name.textContent = product.name;
         body.appendChild(name);
 
         if (product.presentation_qty || product.presentation_unit) {
             const meta = document.createElement('div');
-            meta.className = 'card__meta';
+            meta.className = 'tile__meta';
             meta.textContent = `${product.presentation_qty} ${product.presentation_unit}`.trim();
             body.appendChild(meta);
         }
 
+        const price = document.createElement('div');
+        price.className = 'tile__price';
+        price.textContent = priceFormatter.format(product.price || 0);
+        body.appendChild(price);
+
         if (state.isAdmin && !product.visible) {
             const badge = document.createElement('div');
-            badge.className = 'card__hidden-badge';
+            badge.className = 'tile__hidden-badge';
             badge.textContent = 'Oculto para clientes';
             body.appendChild(badge);
         }
 
         card.appendChild(body);
 
-        const price = document.createElement('div');
-        price.className = 'card__price';
-        price.textContent = priceFormatter.format(product.price || 0);
-        card.appendChild(price);
-
         return card;
     }
+
+    // ─────────────────── QUICK VIEW (ventana flotante) ───────────────────
+
+    let quickViewProduct = null;
+
+    function openQuickView(product) {
+        quickViewProduct = product;
+        quickviewImg.src = imageUrl(product);
+        quickviewImg.alt = product.name;
+        quickviewName.textContent = product.name;
+
+        const meta = `${product.presentation_qty || ''} ${product.presentation_unit || ''}`.trim();
+        quickviewMeta.textContent = meta;
+        quickviewMeta.hidden = !meta;
+
+        quickviewPrice.textContent = priceFormatter.format(product.price || 0);
+
+        quickviewDescription.textContent = product.description || '';
+        quickviewDescription.hidden = !product.description;
+
+        quickviewAdminActions.hidden = !state.isAdmin;
+
+        openModal(quickviewModal);
+    }
+
+    quickviewEditBtn.addEventListener('click', () => {
+        closeModal(quickviewModal);
+        if (quickViewProduct) openProductForm(quickViewProduct);
+    });
+
+    quickviewRotateBtn.addEventListener('click', async () => {
+        if (!quickViewProduct) return;
+        quickviewRotateBtn.disabled = true;
+        try {
+            await fetchJSON(`/api/products/${quickViewProduct.id}/rotate`, { method: 'POST' });
+            state.imageVersions[quickViewProduct.id] = Date.now();
+            quickviewImg.src = imageUrl(quickViewProduct);
+            await loadProducts();
+        } catch (err) {
+            alert(err.message || 'No se pudo rotar la imagen');
+        } finally {
+            quickviewRotateBtn.disabled = false;
+        }
+    });
 
     function renderProducts(products) {
         gridEl.innerHTML = '';
