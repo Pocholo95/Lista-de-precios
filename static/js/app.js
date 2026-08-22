@@ -22,6 +22,9 @@
     const productModalTitle = document.getElementById('product-modal-title');
     const categoryCheckboxesEl = document.getElementById('category-checkboxes');
     const deleteBtn = document.getElementById('delete-btn');
+    const currentPhotoWrap = document.getElementById('current-photo-wrap');
+    const currentPhotoImg = document.getElementById('current-photo-img');
+    const rotatePhotoBtn = document.getElementById('rotate-photo-btn');
 
     const categoriesBtn = document.getElementById('categories-btn');
     const categoriesModal = document.getElementById('categories-modal');
@@ -620,18 +623,23 @@
 
     // ─────────────────── PRODUCT FORM ───────────────────
 
+    let editingProduct = null;
+
     function resetProductForm() {
         productForm.reset();
         document.getElementById('product-id').value = '';
         document.getElementById('field-visible').checked = true;
         fieldBarcode.value = '';
         deleteBtn.hidden = true;
+        editingProduct = null;
+        currentPhotoWrap.hidden = true;
         renderCategoryCheckboxes([]);
     }
 
     function openProductForm(product) {
         resetProductForm();
         if (product) {
+            editingProduct = product;
             productModalTitle.textContent = 'Editar producto';
             document.getElementById('product-id').value = product.id;
             document.getElementById('field-name').value = product.name;
@@ -644,11 +652,30 @@
             renderCategoryCheckboxes(product.categories || []);
             deleteBtn.hidden = false;
             deleteBtn.onclick = () => deleteProduct(product.id);
+            if (product.image && product.image !== 'placeholder.webp') {
+                currentPhotoImg.src = imageUrl(product);
+                currentPhotoWrap.hidden = false;
+            }
         } else {
             productModalTitle.textContent = 'Agregar producto';
         }
         openModal(productModal);
     }
+
+    rotatePhotoBtn.addEventListener('click', async () => {
+        if (!editingProduct) return;
+        rotatePhotoBtn.disabled = true;
+        try {
+            await fetchJSON(`/api/products/${editingProduct.id}/rotate`, { method: 'POST' });
+            state.imageVersions[editingProduct.id] = Date.now();
+            currentPhotoImg.src = imageUrl(editingProduct);
+            await loadProducts();
+        } catch (err) {
+            alert(err.message || 'No se pudo rotar la imagen');
+        } finally {
+            rotatePhotoBtn.disabled = false;
+        }
+    });
 
     addFab.addEventListener('click', () => openProductForm(null));
 

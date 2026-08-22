@@ -438,6 +438,26 @@ body.is-admin .header__admin-btn {
     min-height: 44px;
 }
 
+.current-photo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.current-photo[hidden] {
+    display: none;
+}
+
+.current-photo__img {
+    width: 56px;
+    height: 56px;
+    border-radius: 10px;
+    object-fit: cover;
+    background: #f0f0f5;
+    flex: 0 0 auto;
+}
+
 .field--switch {
     display: flex;
     align-items: center;
