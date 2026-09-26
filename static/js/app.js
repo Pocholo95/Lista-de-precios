@@ -24,7 +24,9 @@
     const deleteBtn = document.getElementById('delete-btn');
     const currentPhotoWrap = document.getElementById('current-photo-wrap');
     const currentPhotoImg = document.getElementById('current-photo-img');
-    const rotatePhotoBtn = document.getElementById('rotate-photo-btn');
+    const rotateLeftBtn = document.getElementById('rotate-left-btn');
+    const rotateRightBtn = document.getElementById('rotate-right-btn');
+    const rotateHint = document.getElementById('rotate-hint');
 
     const categoriesBtn = document.getElementById('categories-btn');
     const categoriesModal = document.getElementById('categories-modal');
@@ -33,14 +35,25 @@
     const categoryListEl = document.getElementById('category-list');
 
     const quickviewModal = document.getElementById('quickview-modal');
+    const quickviewStage = document.getElementById('quickview-stage');
     const quickviewImg = document.getElementById('quickview-img');
     const quickviewName = document.getElementById('quickview-name');
     const quickviewMeta = document.getElementById('quickview-meta');
     const quickviewPrice = document.getElementById('quickview-price');
     const quickviewDescription = document.getElementById('quickview-description');
+    const quickviewCounter = document.getElementById('quickview-counter');
+    const quickviewPrev = document.getElementById('quickview-prev');
+    const quickviewNext = document.getElementById('quickview-next');
+    const quickviewShareBtn = document.getElementById('quickview-share-btn');
     const quickviewAdminActions = document.getElementById('quickview-admin-actions');
-    const quickviewRotateBtn = document.getElementById('quickview-rotate-btn');
+    const quickviewRotateLeft = document.getElementById('quickview-rotate-left');
+    const quickviewRotateRight = document.getElementById('quickview-rotate-right');
+    const quickviewRotateSave = document.getElementById('quickview-rotate-save');
+    const quickviewRotateCancel = document.getElementById('quickview-rotate-cancel');
     const quickviewEditBtn = document.getElementById('quickview-edit-btn');
+
+    const sortSelect = document.getElementById('sort-select');
+    const gridSentinel = document.getElementById('grid-sentinel');
 
     const scanBtn = document.getElementById('scan-btn');
     const scanModal = document.getElementById('scan-modal');
@@ -64,8 +77,13 @@
         categories: [],
         isAdmin: false,
         specialFilter: null,
-        imageVersions: {},
+        sort: 'recent',
+        products: [],   // resultado del servidor, sin ordenar
+        items: [],      // products ya ordenados: es lo que se muestra y por lo que navega la vista rápida
+        rendered: 0,    // cuántos tiles ya están en el DOM (carga progresiva)
     };
+
+    const PAGE_SIZE = 24;
 
     const priceFormatter = new Intl.NumberFormat('es-MX', {
         style: 'currency',
@@ -106,9 +124,23 @@
         quickview: quickviewModal,
     };
 
+    // La URL lleva updated_at para que una foto editada o rotada se descargue de nuevo
+    // (en este y en los demás teléfonos) en vez de servirse desde la caché.
     function imageUrl(product) {
-        const version = state.imageVersions[product.id];
-        return version ? `/static/images/${product.image}?v=${version}` : `/static/images/${product.image}`;
+        const base = `/static/images/${product.image}`;
+        return product.updated_at ? `${base}?v=${encodeURIComponent(product.updated_at)}` : base;
+    }
+
+    function preloadImage(url) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = img.onerror = () => resolve();
+            img.src = url;
+        });
+    }
+
+    function normalizeRotation(deg) {
+        return ((deg % 360) + 360) % 360;
     }
 
     document.querySelectorAll('[data-close]').forEach((el) => {
@@ -481,12 +513,135 @@
         return card;
     }
 
+    // ─────────────────── ORDEN + CARGA PROGRESIVA ───────────────────
+
+    const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
+
+    function sortProducts(products) {
+        // "Duplicados" ya viene agrupado por nombre; reordenarlo rompería el agrupamiento.
+        if (state.sort === 'recent' || state.specialFilter === 'duplicates') return products;
+        const list = products.slice();
+        const byName = (a, b) => collator.compare(a.name, b.name);
+        if (state.sort === 'name') list.sort(byName);
+        else if (state.sort === 'price-asc') list.sort((a, b) => (a.price || 0) - (b.price || 0) || byName(a, b));
+        else if (state.sort === 'price-desc') list.sort((a, b) => (b.price || 0) - (a.price || 0) || byName(a, b));
+        return list;
+    }
+
+    function renderMore(count) {
+        const end = Math.min(state.rendered + count, state.items.length);
+        const frag = document.createDocumentFragment();
+        for (let i = state.rendered; i < end; i++) frag.appendChild(productCard(state.items[i]));
+        gridEl.appendChild(frag);
+        state.rendered = end;
+    }
+
+    // Renderiza por lotes mientras el final de la lista esté cerca de la pantalla.
+    function fillViewport() {
+        while (state.rendered < state.items.length
+               && gridSentinel.getBoundingClientRect().top < window.innerHeight + 800) {
+            renderMore(PAGE_SIZE);
+        }
+    }
+
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver((entries) => {
+            if (entries.some((e) => e.isIntersecting)) fillViewport();
+        }, { rootMargin: '800px 0px' }).observe(gridSentinel);
+    } else {
+        window.addEventListener('scroll', fillViewport, { passive: true });
+    }
+
+    function applyView(keepRendered) {
+        const previouslyRendered = state.rendered;
+        state.items = sortProducts(state.products);
+        gridEl.innerHTML = '';
+        state.rendered = 0;
+        emptyEl.hidden = state.items.length > 0;
+        // Si es la misma vista (p. ej. tras editar), conserva cuántos tiles había para no perder el scroll.
+        renderMore(keepRendered ? Math.max(PAGE_SIZE, previouslyRendered) : PAGE_SIZE);
+        fillViewport();
+        syncQuickView();
+    }
+
+    try {
+        const saved = localStorage.getItem('catalogo-sort');
+        if (saved && Array.from(sortSelect.options).some((o) => o.value === saved)) state.sort = saved;
+    } catch (err) { /* sin localStorage: se queda en "recientes" */ }
+    sortSelect.value = state.sort;
+
+    sortSelect.addEventListener('change', () => {
+        state.sort = sortSelect.value;
+        try { localStorage.setItem('catalogo-sort', state.sort); } catch (err) { /* ignorar */ }
+        applyView(false);
+        window.scrollTo({ top: 0 });
+    });
+
     // ─────────────────── QUICK VIEW (ventana flotante) ───────────────────
 
-    let quickViewProduct = null;
+    let quickViewId = null;
+    let quickViewIndex = -1;
+    let quickRotation = 0;   // giro pendiente (vista previa) en grados, sentido horario
 
-    function openQuickView(product) {
-        quickViewProduct = product;
+    const zoom = { scale: 1, x: 0, y: 0 };
+    const ZOOM_MAX = 4;
+    const pointers = new Map();
+    let swipe = null;
+    let pinch = null;
+    let lastTap = 0;
+
+    function quickViewProduct() {
+        return state.items[quickViewIndex] || null;
+    }
+
+    function applyImageTransform() {
+        quickviewImg.style.transform =
+            `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.scale}) rotate(${quickRotation}deg)`;
+        quickviewStage.style.cursor = zoom.scale > 1 ? 'grab' : 'zoom-in';
+    }
+
+    function clampPan() {
+        const maxX = (quickviewStage.clientWidth * (zoom.scale - 1)) / 2;
+        const maxY = (quickviewStage.clientHeight * (zoom.scale - 1)) / 2;
+        zoom.x = Math.min(maxX, Math.max(-maxX, zoom.x));
+        zoom.y = Math.min(maxY, Math.max(-maxY, zoom.y));
+    }
+
+    function resetZoom() {
+        zoom.scale = 1;
+        zoom.x = 0;
+        zoom.y = 0;
+        applyImageTransform();
+    }
+
+    // (cx, cy) es el punto a mantener fijo, relativo al centro del contenedor.
+    function zoomAt(cx, cy, newScale) {
+        const scale = Math.min(ZOOM_MAX, Math.max(1, newScale));
+        const k = scale / zoom.scale;
+        zoom.x = cx - k * (cx - zoom.x);
+        zoom.y = cy - k * (cy - zoom.y);
+        zoom.scale = scale;
+        clampPan();
+        applyImageTransform();
+    }
+
+    function relativeToCenter(clientX, clientY) {
+        const rect = quickviewStage.getBoundingClientRect();
+        return { x: clientX - (rect.left + rect.width / 2), y: clientY - (rect.top + rect.height / 2) };
+    }
+
+    function updateRotateUI() {
+        const pending = normalizeRotation(quickRotation) !== 0;
+        quickviewRotateSave.hidden = !pending;
+        quickviewRotateCancel.hidden = !pending;
+    }
+
+    function resetRotatePreview() {
+        quickRotation = 0;
+        updateRotateUI();
+    }
+
+    function fillQuickView(product) {
         quickviewImg.src = imageUrl(product);
         quickviewImg.alt = product.name;
         quickviewName.textContent = product.name;
@@ -502,36 +657,259 @@
 
         quickviewAdminActions.hidden = !state.isAdmin;
 
+        const total = state.items.length;
+        quickviewCounter.textContent = `${quickViewIndex + 1} / ${total}`;
+        quickviewPrev.hidden = quickViewIndex <= 0;
+        quickviewNext.hidden = quickViewIndex >= total - 1;
+    }
+
+    function showQuickView(index) {
+        const product = state.items[index];
+        if (!product) return;
+        quickViewIndex = index;
+        quickViewId = product.id;
+        resetZoom();
+        resetRotatePreview();
+        fillQuickView(product);
+        // Precarga los vecinos para que al deslizar la foto ya esté lista.
+        for (const neighbor of [state.items[index - 1], state.items[index + 1]]) {
+            if (neighbor) preloadImage(imageUrl(neighbor));
+        }
+    }
+
+    function openQuickView(product) {
+        const index = state.items.findIndex((p) => p.id === product.id);
+        if (index < 0) return;
+        showQuickView(index);
         openModal(quickviewModal);
     }
 
-    quickviewEditBtn.addEventListener('click', () => {
+    function stepQuickView(delta) {
+        const next = quickViewIndex + delta;
+        if (next >= 0 && next < state.items.length) showQuickView(next);
+    }
+
+    // Tras recargar la lista (editar, rotar, filtrar) mantiene abierta la vista rápida en el mismo producto.
+    function syncQuickView() {
+        if (quickviewModal.hidden) return;
+        const index = state.items.findIndex((p) => p.id === quickViewId);
+        if (index < 0) {
+            closeModal(quickviewModal);
+            return;
+        }
+        quickViewIndex = index;
+        fillQuickView(state.items[index]);
+    }
+
+    function closeQuickView() {
         closeModal(quickviewModal);
-        if (quickViewProduct) openProductForm(quickViewProduct);
+        pointers.clear();
+        swipe = null;
+        pinch = null;
+    }
+
+    document.querySelectorAll('[data-close="quickview"]').forEach((el) => {
+        el.addEventListener('click', closeQuickView);
     });
 
-    quickviewRotateBtn.addEventListener('click', async () => {
-        if (!quickViewProduct) return;
-        quickviewRotateBtn.disabled = true;
+    quickviewPrev.addEventListener('click', () => stepQuickView(-1));
+    quickviewNext.addEventListener('click', () => stepQuickView(1));
+
+    document.addEventListener('keydown', (e) => {
+        if (quickviewModal.hidden) return;
+        if (e.key === 'ArrowLeft') stepQuickView(-1);
+        else if (e.key === 'ArrowRight') stepQuickView(1);
+        else if (e.key === 'Escape') closeQuickView();
+    });
+
+    // Gestos sobre la foto: pellizcar / rueda para zoom, arrastrar para mover con zoom,
+    // deslizar horizontalmente (sin zoom) para cambiar de producto, doble tap para acercar.
+    quickviewStage.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('button')) return;
+        try { quickviewStage.setPointerCapture(e.pointerId); } catch (err) { /* puntero ya inactivo */ }
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        quickviewStage.classList.add('is-gesturing');
+        if (pointers.size === 2) {
+            swipe = null;
+            const [a, b] = Array.from(pointers.values());
+            pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), midX: (a.x + b.x) / 2, midY: (a.y + b.y) / 2 };
+        } else if (pointers.size === 1) {
+            swipe = { startX: e.clientX, startY: e.clientY, moved: false };
+        }
+    });
+
+    quickviewStage.addEventListener('pointermove', (e) => {
+        const pointer = pointers.get(e.pointerId);
+        if (!pointer) return;
+        const dx = e.clientX - pointer.x;
+        const dy = e.clientY - pointer.y;
+        pointer.x = e.clientX;
+        pointer.y = e.clientY;
+
+        if (pointers.size === 2 && pinch) {
+            const [a, b] = Array.from(pointers.values());
+            const dist = Math.hypot(a.x - b.x, a.y - b.y);
+            const midX = (a.x + b.x) / 2;
+            const midY = (a.y + b.y) / 2;
+            const c = relativeToCenter(midX, midY);
+            zoomAt(c.x, c.y, zoom.scale * (dist / pinch.dist));
+            zoom.x += midX - pinch.midX;
+            zoom.y += midY - pinch.midY;
+            clampPan();
+            applyImageTransform();
+            pinch = { dist, midX, midY };
+        } else if (pointers.size === 1) {
+            if (zoom.scale > 1) {
+                zoom.x += dx;
+                zoom.y += dy;
+                clampPan();
+                applyImageTransform();
+            }
+            if (swipe && Math.hypot(e.clientX - swipe.startX, e.clientY - swipe.startY) > 8) swipe.moved = true;
+        }
+    });
+
+    function endPointer(e) {
+        if (!pointers.has(e.pointerId)) return;
+        pointers.delete(e.pointerId);
+        if (pointers.size < 2) pinch = null;
+        if (pointers.size > 0) {
+            swipe = null;   // se soltó un dedo tras pellizcar: no cuenta como deslizar
+            return;
+        }
+        quickviewStage.classList.remove('is-gesturing');
+        if (swipe && e.type === 'pointerup') {
+            const dx = e.clientX - swipe.startX;
+            const dy = e.clientY - swipe.startY;
+            if (!swipe.moved) {
+                const now = Date.now();
+                if (now - lastTap < 300) {
+                    lastTap = 0;
+                    if (zoom.scale > 1) {
+                        resetZoom();
+                    } else {
+                        const c = relativeToCenter(e.clientX, e.clientY);
+                        zoomAt(c.x, c.y, 2.5);
+                    }
+                } else {
+                    lastTap = now;
+                }
+            } else if (zoom.scale === 1 && e.pointerType !== 'mouse'
+                       && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                stepQuickView(dx < 0 ? 1 : -1);
+            }
+        }
+        swipe = null;
+        if (zoom.scale < 1.05) resetZoom();
+    }
+
+    quickviewStage.addEventListener('pointerup', endPointer);
+    quickviewStage.addEventListener('pointercancel', endPointer);
+
+    let wheelTimer = null;
+    quickviewStage.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        quickviewStage.classList.add('is-gesturing');
+        clearTimeout(wheelTimer);
+        wheelTimer = setTimeout(() => quickviewStage.classList.remove('is-gesturing'), 150);
+        const c = relativeToCenter(e.clientX, e.clientY);
+        zoomAt(c.x, c.y, zoom.scale * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
+        if (zoom.scale < 1.05) resetZoom();
+    }, { passive: false });
+
+    // ── Giro de la foto (admin): primero vista previa, se guarda al confirmar ──
+
+    function rotateQuickPreview(delta) {
+        quickRotation += delta;
+        updateRotateUI();
+        applyImageTransform();
+    }
+
+    quickviewRotateLeft.addEventListener('click', () => rotateQuickPreview(-90));
+    quickviewRotateRight.addEventListener('click', () => rotateQuickPreview(90));
+
+    quickviewRotateCancel.addEventListener('click', () => {
+        resetRotatePreview();
+        applyImageTransform();
+    });
+
+    quickviewRotateSave.addEventListener('click', async () => {
+        const product = quickViewProduct();
+        const degrees = normalizeRotation(quickRotation);
+        if (!product || degrees === 0) return;
+        quickviewRotateSave.disabled = true;
         try {
-            await fetchJSON(`/api/products/${quickViewProduct.id}/rotate`, { method: 'POST' });
-            state.imageVersions[quickViewProduct.id] = Date.now();
-            quickviewImg.src = imageUrl(quickViewProduct);
+            const updated = await fetchJSON(`/api/products/${product.id}/rotate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ degrees }),
+            });
+            Object.assign(product, updated);
+            // Espera a que cargue la foto ya girada para quitar la vista previa sin parpadeo.
+            await preloadImage(imageUrl(product));
+            quickviewStage.classList.add('is-gesturing');
+            resetRotatePreview();
+            fillQuickView(product);
+            applyImageTransform();
+            requestAnimationFrame(() => quickviewStage.classList.remove('is-gesturing'));
             await loadProducts();
         } catch (err) {
             alert(err.message || 'No se pudo rotar la imagen');
         } finally {
-            quickviewRotateBtn.disabled = false;
+            quickviewRotateSave.disabled = false;
         }
     });
 
-    function renderProducts(products) {
-        gridEl.innerHTML = '';
-        emptyEl.hidden = products.length > 0;
-        for (const product of products) {
-            gridEl.appendChild(productCard(product));
-        }
+    quickviewEditBtn.addEventListener('click', () => {
+        const product = quickViewProduct();
+        closeQuickView();
+        if (product) openProductForm(product);
+    });
+
+    // ── Compartir ──
+
+    // Convierte la foto (WebP con fondo transparente) a JPEG con fondo blanco:
+    // WhatsApp y otras apps la aceptan mejor así.
+    async function productImageFile(product) {
+        const img = new Image();
+        img.src = imageUrl(product);
+        await img.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+        if (!blob) throw new Error('No se pudo preparar la imagen');
+        return new File([blob], 'producto.jpg', { type: 'image/jpeg' });
     }
+
+    quickviewShareBtn.addEventListener('click', async () => {
+        const product = quickViewProduct();
+        if (!product) return;
+        const meta = `${product.presentation_qty || ''} ${product.presentation_unit || ''}`.trim();
+        const text = `${product.name}${meta ? ` ${meta}` : ''} — ${priceFormatter.format(product.price || 0)}`;
+
+        if (navigator.share) {
+            try {
+                let shareData = { text };
+                try {
+                    const file = await productImageFile(product);
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) shareData = { text, files: [file] };
+                } catch (err) { /* sin foto: se comparte solo el texto */ }
+                await navigator.share(shareData);
+                return;
+            } catch (err) {
+                if (err.name === 'AbortError') return;   // el usuario cerró el menú de compartir
+            }
+        }
+        // Sin Web Share (escritorio o página sin HTTPS): abre WhatsApp con el texto.
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+    });
+
+    // ─────────────────── CARGA DE PRODUCTOS ───────────────────
 
     async function loadProducts() {
         loadingEl.hidden = false;
@@ -548,7 +926,11 @@
             } else {
                 products = await fetchJSON('/api/products');
             }
-            renderProducts(products);
+            const viewKey = JSON.stringify([state.query, state.categoryId, state.specialFilter, state.isAdmin]);
+            const sameView = viewKey === state.viewKey;
+            state.viewKey = viewKey;
+            state.products = products;
+            applyView(sameView);
         } catch (err) {
             console.error(err);
             emptyEl.textContent = 'No se pudo cargar el catálogo. Intenta de nuevo.';
@@ -624,6 +1006,12 @@
     // ─────────────────── PRODUCT FORM ───────────────────
 
     let editingProduct = null;
+    let formRotation = 0;   // giro pendiente de la foto (vista previa); se guarda con el producto
+
+    function updateFormRotation() {
+        currentPhotoImg.style.transform = `rotate(${formRotation}deg)`;
+        rotateHint.hidden = normalizeRotation(formRotation) === 0;
+    }
 
     function resetProductForm() {
         productForm.reset();
@@ -632,7 +1020,10 @@
         fieldBarcode.value = '';
         deleteBtn.hidden = true;
         editingProduct = null;
+        formRotation = 0;
         currentPhotoWrap.hidden = true;
+        currentPhotoImg.style.transform = '';
+        rotateHint.hidden = true;
         renderCategoryCheckboxes([]);
     }
 
@@ -662,18 +1053,21 @@
         openModal(productModal);
     }
 
-    rotatePhotoBtn.addEventListener('click', async () => {
-        if (!editingProduct) return;
-        rotatePhotoBtn.disabled = true;
-        try {
-            await fetchJSON(`/api/products/${editingProduct.id}/rotate`, { method: 'POST' });
-            state.imageVersions[editingProduct.id] = Date.now();
-            currentPhotoImg.src = imageUrl(editingProduct);
-            await loadProducts();
-        } catch (err) {
-            alert(err.message || 'No se pudo rotar la imagen');
-        } finally {
-            rotatePhotoBtn.disabled = false;
+    rotateLeftBtn.addEventListener('click', () => {
+        formRotation -= 90;
+        updateFormRotation();
+    });
+
+    rotateRightBtn.addEventListener('click', () => {
+        formRotation += 90;
+        updateFormRotation();
+    });
+
+    // Con una foto nueva el giro pendiente ya no aplica.
+    document.getElementById('field-image').addEventListener('change', (e) => {
+        if (e.target.files[0]) {
+            formRotation = 0;
+            updateFormRotation();
         }
     });
 
@@ -697,7 +1091,11 @@
         for (const catId of selectedCats) formData.append('categories', catId);
 
         const fileInput = document.getElementById('field-image');
-        if (fileInput.files[0]) formData.set('image', fileInput.files[0]);
+        if (fileInput.files[0]) {
+            formData.set('image', fileInput.files[0]);
+        } else if (id && normalizeRotation(formRotation) !== 0) {
+            formData.set('rotate', String(normalizeRotation(formRotation)));
+        }
 
         try {
             if (id) {

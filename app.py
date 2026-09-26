@@ -190,6 +190,15 @@ def update_product(product_id):
                 file.save(filepath)
                 image_filename = image_processor.process_image(filepath)
 
+        # Giro pendiente de la vista previa del formulario (solo si no se subió foto nueva)
+        if image_filename is None:
+            try:
+                degrees = int(request.form.get('rotate', '0') or 0)
+            except ValueError:
+                degrees = 0
+            if degrees % 360:
+                image_processor.rotate_image(existing['image'], degrees)
+
         updated = db.update_product(
             product_id=product_id,
             name=name,
@@ -219,10 +228,21 @@ def rotate_product_image(product_id):
         if not product:
             return jsonify({'error': 'Producto no encontrado'}), 404
 
-        if not image_processor.rotate_image(product['image']):
+        data = request.get_json(silent=True) or {}
+        try:
+            degrees = int(data.get('degrees', 90))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Ángulo inválido'}), 400
+        if degrees % 90 != 0:
+            return jsonify({'error': 'El ángulo debe ser múltiplo de 90'}), 400
+
+        if degrees % 360 == 0:
+            return jsonify(product)
+
+        if not image_processor.rotate_image(product['image'], degrees):
             return jsonify({'error': 'No se pudo rotar la imagen'}), 400
 
-        return jsonify({'image': product['image']})
+        return jsonify(db.touch_product(product_id))
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

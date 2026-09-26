@@ -102,20 +102,29 @@ class ImageProcessor:
                 pass
             img.save(placeholder_path, 'WebP', quality=90)
 
-    def rotate_image(self, image_filename, degrees=-90):
-        """Rota la imagen ya guardada (por defecto 90° en sentido horario) y la
-        reescribe en el mismo archivo, sin cambiar su nombre."""
+    def rotate_image(self, image_filename, degrees=90):
+        """Rota la imagen ya guardada `degrees` grados en sentido horario (múltiplos de 90)
+        y la reescribe en el mismo archivo, sin cambiar su nombre."""
+        degrees %= 360
+        if degrees % 90 != 0:
+            return False
+        if degrees == 0:
+            return True
         if not image_filename or image_filename == 'placeholder.webp':
             return False
         path = os.path.join(self.upload_folder, image_filename)
         if not os.path.exists(path):
             return False
         try:
-            img = Image.open(path)
-            has_alpha = img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info)
-            img = img.convert('RGBA') if has_alpha else img.convert('RGB')
-            rotated = img.rotate(degrees, expand=True)
-            rotated.save(path, 'WebP', quality=85, method=6)
+            transpose = {
+                90: Image.Transpose.ROTATE_270,   # PIL rota en sentido antihorario
+                180: Image.Transpose.ROTATE_180,
+                270: Image.Transpose.ROTATE_90,
+            }[degrees]
+            with Image.open(path) as img:
+                has_alpha = img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info)
+                img = img.convert('RGBA') if has_alpha else img.convert('RGB')
+                img.transpose(transpose).save(path, 'WebP', quality=90, method=6)
             return True
         except Exception as e:
             print(f'Error rotando imagen {image_filename}: {e}')

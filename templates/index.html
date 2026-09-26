@@ -30,11 +30,19 @@
         <button id="scan-btn" class="searchbar__scan-btn" type="button" aria-label="Escanear código de barras">📷</button>
     </div>
 
-    <button id="categories-drawer-btn" class="category-selector" type="button" aria-haspopup="true">
-        <span class="category-selector__icon">🏷️</span>
-        <span id="category-selector-label" class="category-selector__label">Todas las categorías</span>
-        <span class="category-selector__arrow">▾</span>
-    </button>
+    <div class="toolbar">
+        <button id="categories-drawer-btn" class="category-selector" type="button" aria-haspopup="true">
+            <span class="category-selector__icon">🏷️</span>
+            <span id="category-selector-label" class="category-selector__label">Todas las categorías</span>
+            <span class="category-selector__arrow">▾</span>
+        </button>
+        <select id="sort-select" class="sort-select" aria-label="Ordenar productos">
+            <option value="recent">Más recientes</option>
+            <option value="name">Nombre A–Z</option>
+            <option value="price-asc">Precio: menor</option>
+            <option value="price-desc">Precio: mayor</option>
+        </select>
+    </div>
 
     <div id="admin-bar" class="admin-bar" hidden>
         <span class="admin-bar__label">🔓 Modo administrador</span>
@@ -50,6 +58,7 @@
     </nav>
 
     <main id="product-grid" class="grid"></main>
+    <div id="grid-sentinel" class="grid-sentinel" aria-hidden="true"></div>
 
     <p id="empty-state" class="empty-state" hidden>No se encontraron productos.</p>
     <p id="loading-state" class="loading-state">Cargando productos…</p>
@@ -118,8 +127,16 @@
                 <label class="field">
                     <span class="field__label">Foto</span>
                     <div id="current-photo-wrap" class="current-photo" hidden>
-                        <img id="current-photo-img" class="current-photo__img" alt="Foto actual">
-                        <button id="rotate-photo-btn" type="button" class="btn btn--ghost">🔄 Rotar</button>
+                        <div class="current-photo__frame">
+                            <img id="current-photo-img" class="current-photo__img" alt="Foto actual">
+                        </div>
+                        <div class="current-photo__controls">
+                            <div class="current-photo__buttons">
+                                <button id="rotate-left-btn" type="button" class="btn btn--ghost" aria-label="Rotar a la izquierda">↺</button>
+                                <button id="rotate-right-btn" type="button" class="btn btn--ghost" aria-label="Rotar a la derecha">↻</button>
+                            </div>
+                            <p id="rotate-hint" class="current-photo__hint" hidden>Vista previa: el giro se guarda al presionar Guardar.</p>
+                        </div>
                     </div>
                     <input id="field-image" type="file" accept="image/*" capture="environment">
                 </label>
@@ -181,8 +198,11 @@
         <div class="modal__backdrop" data-close="quickview"></div>
         <div class="modal__sheet modal__sheet--quickview">
             <button class="quickview__close" type="button" data-close="quickview" aria-label="Cerrar">✕</button>
-            <div class="quickview__img-wrap">
-                <img id="quickview-img" class="quickview__img" alt="">
+            <div id="quickview-stage" class="quickview__img-wrap">
+                <img id="quickview-img" class="quickview__img" alt="" draggable="false">
+                <button id="quickview-prev" class="quickview__nav quickview__nav--prev" type="button" aria-label="Producto anterior">‹</button>
+                <button id="quickview-next" class="quickview__nav quickview__nav--next" type="button" aria-label="Producto siguiente">›</button>
+                <span id="quickview-counter" class="quickview__counter"></span>
             </div>
             <div class="quickview__body">
                 <h2 id="quickview-name" class="quickview__name"></h2>
@@ -190,8 +210,16 @@
                 <p id="quickview-price" class="quickview__price"></p>
                 <p id="quickview-description" class="quickview__description" hidden></p>
             </div>
+            <div class="quickview__actions">
+                <button id="quickview-share-btn" type="button" class="btn btn--ghost">📤 Compartir</button>
+            </div>
             <div id="quickview-admin-actions" class="quickview__admin-actions" hidden>
-                <button id="quickview-rotate-btn" type="button" class="btn btn--ghost">🔄 Rotar imagen</button>
+                <div class="quickview__rotate">
+                    <button id="quickview-rotate-left" type="button" class="btn btn--ghost" aria-label="Rotar a la izquierda">↺</button>
+                    <button id="quickview-rotate-right" type="button" class="btn btn--ghost" aria-label="Rotar a la derecha">↻</button>
+                    <button id="quickview-rotate-save" type="button" class="btn btn--primary" hidden>Guardar giro</button>
+                    <button id="quickview-rotate-cancel" type="button" class="btn btn--ghost" hidden>Descartar</button>
+                </div>
                 <button id="quickview-edit-btn" type="button" class="btn btn--primary">✏️ Editar</button>
             </div>
         </div>

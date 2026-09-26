@@ -110,13 +110,34 @@ body.is-admin .header__admin-btn {
     opacity: 0.4;
 }
 
+/* ── TOOLBAR: categorías + orden ── */
+.toolbar {
+    display: flex;
+    gap: 8px;
+    margin: 12px 16px;
+}
+
+.sort-select {
+    flex: 0 1 auto;
+    max-width: 42%;
+    min-height: 44px;
+    padding: 0 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: inherit;
+}
+
 /* ── CATEGORY SELECTOR (abre el panel lateral) ── */
 .category-selector {
     display: flex;
     align-items: center;
     gap: 8px;
-    width: calc(100% - 32px);
-    margin: 12px 16px;
+    flex: 1 1 auto;
+    min-width: 0;
     padding: 10px 14px;
     border-radius: 10px;
     background: var(--surface);
@@ -441,7 +462,7 @@ body.is-admin .header__admin-btn {
 .current-photo {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     margin-bottom: 8px;
 }
 
@@ -449,13 +470,48 @@ body.is-admin .header__admin-btn {
     display: none;
 }
 
-.current-photo__img {
-    width: 56px;
-    height: 56px;
-    border-radius: 10px;
-    object-fit: cover;
-    background: #f0f0f5;
+.current-photo__frame {
+    width: 72px;
+    height: 72px;
     flex: 0 0 auto;
+    border-radius: 10px;
+    background: #f0f0f5;
+    overflow: hidden;
+}
+
+.current-photo__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.2s ease;
+}
+
+.current-photo__controls {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.current-photo__buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.current-photo__buttons .btn {
+    min-width: 48px;
+    padding: 0 12px;
+    font-size: 1.2rem;
+}
+
+.current-photo__hint {
+    margin-top: 6px;
+    font-size: 0.72rem;
+    color: #b45309;
+    line-height: 1.3;
+}
+
+.current-photo__hint[hidden] {
+    display: none;
 }
 
 .field--switch {
@@ -674,7 +730,7 @@ body.is-admin .header__admin-btn {
 
 /* ── QUICK VIEW (ventana flotante al hacer tap en un tile) ── */
 .modal__sheet--quickview {
-    padding: 0;
+    padding: 0 0 calc(20px + var(--safe-bottom));
     max-width: 480px;
 }
 
@@ -696,9 +752,16 @@ body.is-admin .header__admin-btn {
 }
 
 .quickview__img-wrap {
+    position: relative;
     width: 100%;
     aspect-ratio: 1 / 1;
+    max-height: 55vh;
     background: #f0f0f5;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: zoom-in;
 }
 
 .quickview__img {
@@ -706,6 +769,59 @@ body.is-admin .header__admin-btn {
     height: 100%;
     object-fit: contain;
     display: block;
+    transform-origin: center center;
+    transition: transform 0.2s ease;
+    will-change: transform;
+    pointer-events: none;
+}
+
+.quickview__img-wrap.is-gesturing .quickview__img {
+    transition: none;
+}
+
+.quickview__nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.4);
+    color: #fff;
+    font-size: 1.6rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 3px;
+}
+
+.quickview__nav--prev {
+    left: 8px;
+}
+
+.quickview__nav--next {
+    right: 8px;
+}
+
+.quickview__nav[hidden] {
+    display: none;
+}
+
+.quickview__counter {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    z-index: 2;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    pointer-events: none;
 }
 
 .quickview__body {
@@ -744,10 +860,44 @@ body.is-admin .header__admin-btn {
     display: none;
 }
 
-.quickview__admin-actions {
+.quickview__actions {
     display: flex;
     gap: 10px;
-    padding: 16px 20px calc(20px + var(--safe-bottom));
+    padding: 14px 20px 0;
+}
+
+.quickview__actions .btn {
+    flex: 1 1 auto;
+}
+
+.quickview__admin-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 20px 0;
+}
+
+.quickview__rotate {
+    display: flex;
+    gap: 8px;
+}
+
+.quickview__rotate .btn {
+    min-width: 44px;
+    padding: 0 12px;
+    white-space: nowrap;
+}
+
+.quickview__rotate #quickview-rotate-save {
+    flex: 1 1 auto;
+}
+
+.quickview__rotate .btn[hidden] {
+    display: none;
+}
+
+.grid-sentinel {
+    height: 1px;
 }
 
 .quickview__admin-actions[hidden] {

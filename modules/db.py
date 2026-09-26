@@ -1,9 +1,16 @@
 import sqlite3
+import unicodedata
 import uuid
 from datetime import datetime
 
 
 DB_PATH = 'catalog.db'
+
+
+def _fold(text):
+    """Minúsculas y sin acentos, para que "limon" encuentre "Limón"."""
+    decomposed = unicodedata.normalize('NFKD', text or '')
+    return ''.join(c for c in decomposed if not unicodedata.combining(c)).casefold()
 
 
 class ProductDatabase:
@@ -111,26 +118,41 @@ class ProductDatabase:
             return self._with_categories(row, conn)
 
     def search_products(self, query, category_id=None, only_visible=False):
-        q = f'%{query}%'
+        """Busca por nombre, descripción, presentación y código de barras, sin distinguir
+        acentos ni mayúsculas. Cada palabra de la búsqueda debe aparecer en algún campo."""
+        tokens = _fold(query).split()
         visible_clause = 'AND p.visible = 1' if only_visible else ''
         with self._conn() as conn:
             if category_id:
                 rows = conn.execute(f'''
                     SELECT p.* FROM products p
                     JOIN product_categories pc ON p.id = pc.product_id
-                    WHERE pc.category_id = ?
-                      AND (p.name LIKE ? OR p.description LIKE ?)
-                      {visible_clause}
+                    WHERE pc.category_id = ? {visible_clause}
                     ORDER BY p.created_at DESC
-                ''', (category_id, q, q)).fetchall()
+                ''', (category_id,)).fetchall()
             else:
                 rows = conn.execute(f'''
                     SELECT p.* FROM products p
-                    WHERE (p.name LIKE ? OR p.description LIKE ?)
-                    {visible_clause}
+                    WHERE 1 = 1 {visible_clause}
                     ORDER BY p.created_at DESC
-                ''', (q, q)).fetchall()
-            return [self._with_categories(r, conn) for r in rows]
+                ''').fetchall()
+
+            def matches(row):
+                haystack = _fold(' '.join([
+                    row['name'] or '', row['description'] or '',
+                    row['presentation_qty'] or '', row['presentation_unit'] or '',
+                    row['barcode'] or '',
+                ]))
+                return all(token in haystack for token in tokens)
+
+            return [self._with_categories(r, conn) for r in rows if matches(r)]
+
+    def touch_product(self, product_id):
+        """Actualiza updated_at (cambia la URL versionada de la foto tras rotarla)."""
+        with self._conn() as conn:
+            conn.execute('UPDATE products SET updated_at=? WHERE id=?',
+                         (datetime.now().isoformat(), product_id))
+        return self.get_product_by_id(product_id)
 
     def add_product(self, name, description, price, image, categories,
                      presentation_qty='', presentation_unit='', visible=True, barcode=''):

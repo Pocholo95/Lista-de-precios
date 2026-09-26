@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'catalogo-v2';
+const CACHE_VERSION = 'catalogo-v3';
 const APP_SHELL = [
     '/',
     '/static/css/app.css',
